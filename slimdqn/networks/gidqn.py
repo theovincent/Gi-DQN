@@ -5,7 +5,6 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 from flax.core import FrozenDict
-from wandb.jupyter import notebook_metadata
 
 from slimdqn.networks.architectures.dqn import DQNNet
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
