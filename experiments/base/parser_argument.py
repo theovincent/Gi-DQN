@@ -105,10 +105,6 @@ def add_base_arguments(parser: argparse.ArgumentParser):
         default="fc",
         choices=["cnn", "impala", "fc"],
     )
-
-
-@output_added_arguments
-def add_dqn_arguments(parser: argparse.ArgumentParser):
     parser.add_argument(
         "-ne",
         "--n_epochs",
@@ -131,13 +127,6 @@ def add_dqn_arguments(parser: argparse.ArgumentParser):
         default=1,
     )
     parser.add_argument(
-        "-tuf",
-        "--target_update_frequency",
-        help="Number of training steps before updating the target Q-network.",
-        type=int,
-        default=200,
-    )
-    parser.add_argument(
         "-nis",
         "--n_initial_samples",
         help="Number of initial samples before the training starts.",
@@ -157,4 +146,21 @@ def add_dqn_arguments(parser: argparse.ArgumentParser):
         help="Duration of epsilon's linear decay used for exploration.",
         type=float,
         default=1_000,
+    )
+    parser.add_argument(
+        "-tuf",
+        "--target_update_frequency",
+        help="Number of training steps before updating the target Q-network.",
+        type=int,
+        default=200,
+    )
+
+@output_added_arguments
+def add_gidqn_arguments(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "-nbi",
+        "--n_bellman_iterations",
+        type=int,
+        help="Number of bellman iterations.",
+        default=1,
     )

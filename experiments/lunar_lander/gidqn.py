@@ -6,7 +6,7 @@ import jax
 from experiments.base.dqn import train
 from experiments.base.utils import prepare_logs
 from slimdqn.environments.lunar_lander import LunarLander
-from slimdqn.networks.dqn import DQN
+from slimdqn.networks.gidqn import GiDQN
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer
 from slimdqn.sample_collection.samplers import UniformSamplingDistribution
 
@@ -27,10 +27,11 @@ def run(argvs=sys.argv[1:]):
         gamma=p["gamma"],
         compress=True,
     )
-    agent = DQN(
+    agent = GiDQN(
         q_key,
         env.observation_shape[0],
         env.n_actions,
+        n_bellman_iterations=p["n_bellman_iterations"],
         features=p["features"],
         architecture_type=p["architecture_type"],
         learning_rate=p["learning_rate"],
