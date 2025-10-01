@@ -12,9 +12,7 @@ from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 @jax.jit
 def shift_params(x):
-    return jax.tree.map(
-        lambda x: x.at[:-1].set(x[1:]), x
-    )  # params[t] = params[t+1] for t in range(params)
+    return jax.tree.map(lambda x: x.at[:-1].set(x[1:]), x)  # params[t] = params[t+1] for t in range(params)
 
 
 class GiDQN:
@@ -32,6 +30,7 @@ class GiDQN:
         update_to_data: int,
         target_update_frequency: int,
         adam_eps: float = 1e-8,
+        weight_decay: float = 0.001,
     ):
         key_params, key_z_params = jax.random.split(key, 2)
 
@@ -41,14 +40,14 @@ class GiDQN:
         self.params = jax.vmap(self.network.init, in_axes=(0, None))(
             jax.random.split(key_params, self.n_bellman_iterations + 1),
             jnp.zeros(observation_dim, dtype=jnp.float32),
-        )  # 0 to K
+        )  # initialize  K+1 online networks
         self.zparams = jax.vmap(self.network.init, in_axes=(0, None))(
             jax.random.split(key_z_params, self.n_bellman_iterations),
             jnp.zeros(observation_dim, dtype=jnp.float32),
-        )  # 1 to K
+        )  # initialize K td-estimator networks
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
-        self.z_optimizer = optax.adamw(learning_rate, eps=adam_eps, weight_decay=0.001)
+        self.z_optimizer = optax.adamw(learning_rate, eps=adam_eps, weight_decay=weight_decay)
 
         self.optimizer_state = self.optimizer.init(self.params)
         self.z_optimizer_state = self.z_optimizer.init(self.zparams)
@@ -86,10 +85,8 @@ class GiDQN:
             self.params = shift_params(self.params)
             self.zparams = shift_params(self.zparams)
             logs = {
-                "z_means": self.z_means
-                / (self.target_update_frequency / self.update_to_data),
-                "variance": self.variances
-                / (self.target_update_frequency / self.update_to_data),
+                "z_means": self.z_means / (self.target_update_frequency / self.update_to_data),
+                "variance": self.variances / (self.target_update_frequency / self.update_to_data),
             }
 
             self.z_means = np.zeros(self.n_bellman_iterations)
@@ -110,12 +107,8 @@ class GiDQN:
             self.loss_on_batch, has_aux=True, argnums=(0, 1)
         )(params, zparams, batch_samples)
 
-        updates, optimizer_state = self.optimizer.update(
-            grad_loss, optimizer_state, params
-        )
-        z_updates, z_optimizer_state = self.z_optimizer.update(
-            z_grad_loss, z_optimizer_state, zparams
-        )
+        updates, optimizer_state = self.optimizer.update(grad_loss, optimizer_state, params)
+        z_updates, z_optimizer_state = self.z_optimizer.update(z_grad_loss, z_optimizer_state, zparams)
 
         params = optax.apply_updates(params, updates)
         zparams = optax.apply_updates(zparams, z_updates)
@@ -129,23 +122,21 @@ class GiDQN:
         )
 
     def loss_on_batch(self, params: FrozenDict, zparams: FrozenDict, samples):
-        loss, z_values, variances = jax.vmap(self.loss, in_axes=(None, None, 0))(
-            params, zparams, samples
-        )
-        return loss.mean(), (z_values.mean(), variances.mean())
+        loss, z_values, variances = jax.vmap(self.loss, in_axes=(None, None, 0))(params, zparams, samples)
+        return loss.mean(), (
+            z_values.mean(),
+            variances.mean(),
+        )  # This takes mean over all networks instead of sum (big difference?) and no network level variances
 
     def loss(
         self,
         params: FrozenDict,
         zparams: FrozenDict,
         sample: ReplayElement,
-        mu: float = 1,
     ):
         # computes the loss for a single sample
 
-        q_values = jax.vmap(self.network.apply, in_axes=(0, None))(
-            jax.tree.map(lambda x: x[1:], params), sample.state
-        )[
+        q_values = jax.vmap(self.network.apply, in_axes=(0, None))(jax.tree.map(lambda x: x[1:], params), sample.state)[
             :, sample.action
         ]  # from 1 to n_bellman_iterations
         targets = jax.vmap(self.compute_target, in_axes=(0, None))(
@@ -153,39 +144,31 @@ class GiDQN:
         )  # from 1 to n_bellman_iterations - 1
         TDs = targets - q_values
 
-        z_values = jax.vmap(self.network.apply, in_axes=(0, None))(
-            zparams, sample.state
-        )[:, sample.action]
-        z_loss = z_values * jax.lax.stop_gradient(z_values - TDs)
+        z_values = jax.vmap(self.network.apply, in_axes=(0, None))(zparams, sample.state)[:, sample.action]
+        z_loss = z_values * jax.lax.stop_gradient(z_values - TDs)  # advantage of writing this over (TDs-z_values)**2 ?
 
         targets = targets.at[0].set(
             0.0
-        )  # cut off the gradient flow to the first Q-Network Q_0 by overwriting the first target with a constant.
-        TD_loss = targets * jax.lax.stop_gradient(
-            z_values
-        ) - q_values * jax.lax.stop_gradient(TDs)
+        )  # cut off the gradient flow to the first Q-Network Q_0 by overwriting the first target with a constant
+        TD_loss = targets * jax.lax.stop_gradient(z_values) - q_values * jax.lax.stop_gradient(TDs)
 
         return (
-            (TD_loss + mu * z_loss).mean(),
+            (TD_loss + z_loss).mean(),  # discard mu?
             z_values,
             (targets**2 - targets * q_values).mean(),
         )  # TDs * jnp.square(targets - TDs); mu is weighting both loss terms
 
     def compute_target(self, params: FrozenDict, sample: ReplayElement):
         # computes the target value for single sample
-        return sample.reward + (1 - sample.is_terminal) * (
-            self.gamma**self.update_horizon
-        ) * jnp.max(self.network.apply(params, sample.next_state))
+        return sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * jnp.max(
+            self.network.apply(params, sample.next_state)
+        )
 
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray, key: jax.Array):
         # computes the best action for a single state
         idx_params = jax.random.randint(key, (), 1, self.n_bellman_iterations + 1)
-        return jnp.argmax(
-            self.network.apply(
-                jax.tree.map(lambda param: param[idx_params], params), state
-            )
-        )
+        return jnp.argmax(self.network.apply(jax.tree.map(lambda param: param[idx_params], params), state))
 
     def get_model(self):
-        return {"params": self.params}
+        return {"params": self.params, "td_estimator_params": self.zparams}

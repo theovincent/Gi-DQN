@@ -87,7 +87,7 @@ class DQN:
         )
 
     @partial(jax.jit, static_argnames="self")
-    def best_action(self, params: FrozenDict, state: jnp.ndarray):
+    def best_action(self, params: FrozenDict, state: jnp.ndarray, key=None):
         # computes the best action for a single state
         return jnp.argmax(self.network.apply(params, state))
 
