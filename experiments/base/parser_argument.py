@@ -155,8 +155,8 @@ def add_base_arguments(parser: argparse.ArgumentParser):
         default=200,
     )
 
-@output_added_arguments
-def add_gidqn_arguments(parser: argparse.ArgumentParser):
+
+def add_n_bellman_iterations(parser: argparse.ArgumentParser):
     parser.add_argument(
         "-nbi",
         "--n_bellman_iterations",
@@ -164,3 +164,24 @@ def add_gidqn_arguments(parser: argparse.ArgumentParser):
         help="Number of bellman iterations.",
         default=1,
     )
+
+
+def add_weight_decay(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "-wd",
+        "--weight_decay",
+        help="Weighting of the regularization in weight decay.",
+        type=float,
+        default=0.001,
+    )
+
+
+@output_added_arguments
+def add_gidqn_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_weight_decay(parser)
+
+
+@output_added_arguments
+def add_dqn_arguments(parser: argparse.ArgumentParser):
+    return parser
