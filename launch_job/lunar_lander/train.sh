@@ -10,7 +10,7 @@ then
     source env_gpu/bin/activate
     export XLA_PYTHON_CLIENT_MEM_FRACTION=$(echo "scale=2 ; 1 / ($LAST_SEED - $FIRST_SEED + 1)" | bc)
 else
-    source env_cpu/bin/activate
+    source env/bin/activate
 fi
 
 for (( seed=$FIRST_SEED; seed<=$LAST_SEED; seed++ ))
