@@ -43,9 +43,9 @@ class iDQN:
         self.network = DQNNet(features, architecture_type, n_actions)
 
         self.params = jax.vmap(self.network.init, in_axes=(0, None))(
-            jax.random.split(key, self.n_bellman_iterations + 1),
+            jax.random.split(key, self.n_bellman_iterations),
             jnp.zeros(observation_dim, dtype=jnp.float32),
-        )  # initialize  K+1 networks
+        )  # initialize K networks
         self.target_params = self.params.copy()  # initialize Target networks
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
@@ -56,7 +56,7 @@ class iDQN:
         self.update_to_data = update_to_data
         self.target_update_frequency = target_update_frequency
         self.target_sync_frequency = target_sync_frequency
-        self.cumulative_losses = np.zeros(self.n_bellman_iterations + 1)
+        self.cumulative_losses = np.zeros(self.n_bellman_iterations)
         self.cumulative_variance = 0
 
     def update_online_params(self, step: int, replay_buffer: ReplayBuffer):
@@ -84,12 +84,12 @@ class iDQN:
                 "loss": np.mean(self.cumulative_losses) / (self.target_update_frequency / self.update_to_data),
                 "variance": np.mean(self.cumulative_variance) / (self.target_update_frequency / self.update_to_data),
             }
-            for idx_network in range(0, min(5, self.n_bellman_iterations + 1)):
+            for idx_network in range(0, min(5, self.n_bellman_iterations)):
                 logs[f"networks/{idx_network}_loss"] = self.cumulative_losses[idx_network] / (
                     self.target_update_frequency / self.update_to_data
                 )
 
-            self.cumulative_losses = np.zeros(self.n_bellman_iterations + 1)
+            self.cumulative_losses = np.zeros(self.n_bellman_iterations)
             self.cumulative_variance = 0
             return True, logs
         # sync target network parameters to previous online network every target_sync_frequency steps
