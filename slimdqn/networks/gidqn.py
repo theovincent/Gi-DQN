@@ -146,21 +146,21 @@ class GiDQN:
         ]  # from 1 to n_bellman_iterations
         targets = jax.vmap(self.compute_target, in_axes=(0, None))(
             jax.tree.map(lambda x: x[:-1], params), sample
-        )  # from 1 to n_bellman_iterations - 1
-        TDs = targets - q_values
+        )  # from 0 to n_bellman_iterations - 1
+        td_errors = targets - q_values
 
         z_values = jax.vmap(self.network.apply, in_axes=(0, None))(zparams, sample.state)[:, sample.action]
-        z_loss = z_values * jax.lax.stop_gradient(z_values - TDs)  # advantage of writing this over (TDs-z_values)**2 ?
+        z_loss = z_values * jax.lax.stop_gradient(z_values - td_errors)
 
         targets = targets.at[0].set(
             0.0
         )  # cut off the gradient flow to the first Q-Network Q_0 by overwriting the first target with a constant
-        TD_loss = targets * jax.lax.stop_gradient(z_values) - q_values * jax.lax.stop_gradient(TDs)
+        td_loss = targets * jax.lax.stop_gradient(z_values) - q_values * jax.lax.stop_gradient(td_errors)
 
         return (
-            TD_loss + z_loss,
-            jnp.square(TDs),
-            jnp.square(z_values - TDs),
+            td_loss + z_loss,
+            jnp.square(td_errors),
+            jnp.square(z_values - td_errors),
             (targets**2 - targets * q_values).mean(),
         )
 
