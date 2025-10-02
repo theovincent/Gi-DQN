@@ -176,10 +176,31 @@ def add_weight_decay(parser: argparse.ArgumentParser):
     )
 
 
+def add_target_sync_frequency(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "-tsf",
+        "--target_sync_frequency",
+        help="Number of training steps before updating each target Q-network to its corresponding online Q-network. (D)",
+        type=int,
+        default=10,
+    )
+
+
 @output_added_arguments
 def add_gidqn_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
+
+
+@output_added_arguments
+def add_fidqn_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+
+
+@output_added_arguments
+def add_idqn_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_target_sync_frequency(parser)
 
 
 @output_added_arguments
