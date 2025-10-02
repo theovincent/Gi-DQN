@@ -56,41 +56,50 @@ class GiDQN:
         self.update_horizon = update_horizon
         self.update_to_data = update_to_data
         self.target_update_frequency = target_update_frequency
-        self.cumulated_loss = np.zeros(self.n_bellman_iterations)
-        self.z_means = np.zeros(self.n_bellman_iterations)
-        self.variances = np.zeros(self.n_bellman_iterations)
+        self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)
+        self.cumulative_z_losses = np.zeros(self.n_bellman_iterations)
+        self.cumulative_variance = 0
 
     def update_online_params(self, step: int, replay_buffer: ReplayBuffer):
         if step % self.update_to_data == 0:
             batch_samples = replay_buffer.sample()
 
-            (
-                self.params,
-                self.zparams,
-                self.optimizer_state,
-                self.z_optimizer_state,
-                z_means_and_target_variances,
-            ) = self.learn_on_batch(
-                self.params,
-                self.zparams,
-                self.optimizer_state,
-                self.z_optimizer_state,
-                batch_samples,
+            (self.params, self.zparams, self.optimizer_state, self.z_optimizer_state, q_losses, z_losses, variance) = (
+                self.learn_on_batch(
+                    self.params,
+                    self.zparams,
+                    self.optimizer_state,
+                    self.z_optimizer_state,
+                    batch_samples,
+                )
             )
-            self.z_means += z_means_and_target_variances[0]
-            self.variances += z_means_and_target_variances[1]
+
+            self.cumulative_q_losses += q_losses
+            self.cumulative_z_losses += z_losses
+            self.cumulative_variance += variance
 
     def update_target_params(self, step: int):
         if step % self.target_update_frequency == 0:
             self.params = shift_params(self.params)
             self.zparams = shift_params(self.zparams)
-            logs = {
-                "z_means": self.z_means / (self.target_update_frequency / self.update_to_data),
-                "variance": self.variances / (self.target_update_frequency / self.update_to_data),
-            }
 
-            self.z_means = np.zeros(self.n_bellman_iterations)
-            self.variances = np.zeros(self.n_bellman_iterations)
+            logs = {
+                "loss": np.mean(self.cumulative_q_losses) / (self.target_update_frequency / self.update_to_data),
+                "variance": np.mean(self.cumulative_variance) / (self.target_update_frequency / self.update_to_data),
+                "z_loss": np.mean(self.cumulative_z_losses) / (self.target_update_frequency / self.update_to_data),
+            }
+            for idx_network in range(0, min(5, self.n_bellman_iterations + 1)):
+                logs[f"networks/{idx_network}_loss"] = self.cumulative_q_losses[idx_network] / (
+                    self.target_update_frequency / self.update_to_data
+                )
+            for idx_network in range(min(5, self.n_bellman_iterations)):
+                logs[f"z_networks/{idx_network}_loss"] = self.cumulative_z_losses[idx_network] / (
+                    self.target_update_frequency / self.update_to_data
+                )
+
+            self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)
+            self.cumulative_z_losses = np.zeros(self.n_bellman_iterations)
+            self.cumulative_variance = 0
             return True, logs
         return False, {}
 
@@ -103,7 +112,7 @@ class GiDQN:
         z_optimizer_state,
         batch_samples,
     ):
-        (grad_loss, z_grad_loss), z_means_and_target_variances = jax.grad(
+        (grad_loss, z_grad_loss), (q_losses, z_losses, variance) = jax.grad(
             self.loss_on_batch, has_aux=True, argnums=(0, 1)
         )(params, zparams, batch_samples)
 
@@ -113,20 +122,17 @@ class GiDQN:
         params = optax.apply_updates(params, updates)
         zparams = optax.apply_updates(zparams, z_updates)
 
-        return (
-            params,
-            zparams,
-            optimizer_state,
-            z_optimizer_state,
-            z_means_and_target_variances,
-        )
+        return (params, zparams, optimizer_state, z_optimizer_state, q_losses, z_losses, variance)
 
     def loss_on_batch(self, params: FrozenDict, zparams: FrozenDict, samples):
-        loss, z_values, variances = jax.vmap(self.loss, in_axes=(None, None, 0))(params, zparams, samples)
-        return loss.mean(), (
-            z_values.mean(),
+        total_losses, q_losses, z_losses, variances = jax.vmap(self.loss, in_axes=(None, None, 0))(
+            params, zparams, samples
+        )
+        return total_losses.sum(axis=-1).mean(), (
+            q_losses.mean(axis=0),
+            z_losses.mean(axis=0),
             variances.mean(),
-        )  # This takes mean over all networks instead of sum (big difference?) and no network level variances
+        )
 
     def loss(
         self,
@@ -135,7 +141,6 @@ class GiDQN:
         sample: ReplayElement,
     ):
         # computes the loss for a single sample
-
         q_values = jax.vmap(self.network.apply, in_axes=(0, None))(jax.tree.map(lambda x: x[1:], params), sample.state)[
             :, sample.action
         ]  # from 1 to n_bellman_iterations
@@ -153,10 +158,13 @@ class GiDQN:
         TD_loss = targets * jax.lax.stop_gradient(z_values) - q_values * jax.lax.stop_gradient(TDs)
 
         return (
-            (TD_loss + z_loss).mean(),  # discard mu?
-            z_values,
+            TD_loss + z_loss,
+            jnp.square(TDs),
+            jnp.square(z_values - TDs),
             (targets**2 - targets * q_values).mean(),
-        )  # TDs * jnp.square(targets - TDs); mu is weighting both loss terms
+        )
+
+        # TDs * jnp.square(targets - TDs);
 
     def compute_target(self, params: FrozenDict, sample: ReplayElement):
         # computes the target value for single sample
