@@ -44,10 +44,12 @@ class GiDQN:
         self.zparams = jax.vmap(self.network.init, in_axes=(0, None))(
             jax.random.split(key_z_params, self.n_bellman_iterations),
             jnp.zeros(observation_dim, dtype=jnp.float32),
-        )  # initialize K td-estimator networks
+        )  # initialize K TD-error estimator networks
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
-        self.z_optimizer = optax.adamw(learning_rate, eps=adam_eps, weight_decay=weight_decay)
+        self.z_optimizer = optax.adamw(
+            learning_rate, eps=adam_eps, weight_decay=weight_decay
+        )  # regularize the TD-error estimator networks
 
         self.optimizer_state = self.optimizer.init(self.params)
         self.z_optimizer_state = self.z_optimizer.init(self.zparams)
@@ -61,6 +63,7 @@ class GiDQN:
         self.cumulative_variance = 0
 
     def update_online_params(self, step: int, replay_buffer: ReplayBuffer):
+        # Update the network parameters every `update_to_data` steps
         if step % self.update_to_data == 0:
             batch_samples = replay_buffer.sample()
 
@@ -79,6 +82,7 @@ class GiDQN:
             self.cumulative_variance += variance
 
     def update_target_params(self, step: int):
+        # shift the network parameters every `target_update_frequency` steps. This starts the next Bellman iteration
         if step % self.target_update_frequency == 0:
             self.params = shift_params(self.params)
             self.zparams = shift_params(self.zparams)
@@ -125,12 +129,13 @@ class GiDQN:
         return (params, zparams, optimizer_state, z_optimizer_state, q_losses, z_losses, variance)
 
     def loss_on_batch(self, params: FrozenDict, zparams: FrozenDict, samples):
+        # vmap to compute the loss for all samples
         total_losses, q_losses, z_losses, variances = jax.vmap(self.loss, in_axes=(None, None, 0))(
             params, zparams, samples
         )
         return total_losses.sum(axis=-1).mean(), (
-            q_losses.mean(axis=0),
-            z_losses.mean(axis=0),
+            q_losses.mean(axis=0),  # mean over samples but keep networks seperated
+            z_losses.mean(axis=0),  # mean over samples but keep networks seperated
             variances.mean(),
         )
 
@@ -143,10 +148,10 @@ class GiDQN:
         # computes the loss for a single sample
         q_values = jax.vmap(self.network.apply, in_axes=(0, None))(jax.tree.map(lambda x: x[1:], params), sample.state)[
             :, sample.action
-        ]  # from 1 to n_bellman_iterations
+        ]  # use networks 1 to K to compute Q-values
         targets = jax.vmap(self.compute_target, in_axes=(0, None))(
             jax.tree.map(lambda x: x[:-1], params), sample
-        )  # from 0 to n_bellman_iterations - 1
+        )  # use networks 0 to K - 1 to compute targets
         td_errors = targets - q_values
 
         z_values = jax.vmap(self.network.apply, in_axes=(0, None))(zparams, sample.state)[:, sample.action]
