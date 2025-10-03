@@ -120,11 +120,10 @@ def add_base_arguments(parser: argparse.ArgumentParser):
         default=10_000,
     )
     parser.add_argument(
-        "-stoch",
-        "--stochastic",
-        help="Whether the environment should be stochastic.",
-        type=bool,
-        default=True,
+        "--deterministic",
+        help="Whether the environment should be deterministic.",
+        action="store_true",
+        default=False,
     )
     parser.add_argument(
         "-utd",
@@ -185,11 +184,10 @@ def add_weight_decay(parser: argparse.ArgumentParser):
 
 def add_freeze_first_head(parser: argparse.ArgumentParser):
     parser.add_argument(
-        "-ffh",
-        "--freeze_first_head",
-        help="Whether the first network should be fixed for the duration of a Bellman iteration",
-        type=bool,
-        default=True,
+        "--unfreeze_first_head",
+        help="Whether the first network should be fixed or not for the duration of a Bellman iteration",
+        action="store_true",
+        default=False,
     )
 
 

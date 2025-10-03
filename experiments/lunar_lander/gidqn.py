@@ -17,7 +17,7 @@ def run(argvs=sys.argv[1:]):
 
     q_key, train_key = jax.random.split(jax.random.PRNGKey(p["seed"]))
 
-    env = LunarLander(stochastic=p["stochastic"])
+    env = LunarLander(deterministic=p["deterministic"])
     rb = ReplayBuffer(
         sampling_distribution=UniformSamplingDistribution(p["seed"]),
         batch_size=p["batch_size"],
@@ -38,7 +38,7 @@ def run(argvs=sys.argv[1:]):
         gamma=p["gamma"],
         update_horizon=p["update_horizon"],
         update_to_data=p["update_to_data"],
-        freeze_first_head=p["freeze_first_head"],
+        unfreeze_first_head=p["unfreeze_first_head"],
         target_update_frequency=p["target_update_frequency"],
         weight_decay=p["weight_decay"],
     )

@@ -3,11 +3,13 @@ import numpy as np
 
 
 class LunarLander:
-    def __init__(self, render_mode=None, stochastic: bool = False):
+    def __init__(self, render_mode=None, deterministic: bool = False):
         self.env = (
-            gym.make("LunarLander-v3", render_mode=render_mode, enable_wind=True, wind_power=10, turbulence_power=1)
-            if stochastic
-            else gym.make("LunarLander-v3", render_mode=render_mode)
+            gym.make("LunarLander-v3", render_mode=render_mode)
+            if deterministic
+            else gym.make(
+                "LunarLander-v3", render_mode=render_mode, enable_wind=True, wind_power=10, turbulence_power=1
+            )
         )
         self.observation_shape = self.env.observation_space.shape
         self.n_actions = self.env.action_space.n

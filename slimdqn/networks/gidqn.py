@@ -28,7 +28,7 @@ class GiDQN:
         gamma: float,
         update_horizon: int,
         update_to_data: int,
-        freeze_first_head: bool,
+        unfreeze_first_head: bool,
         target_update_frequency: int,
         adam_eps: float = 1e-8,
         weight_decay: float = 0.001,
@@ -58,7 +58,7 @@ class GiDQN:
         self.gamma = gamma
         self.update_horizon = update_horizon
         self.update_to_data = update_to_data
-        self.freeze_first_head = freeze_first_head
+        self.unfreeze_first_head = unfreeze_first_head
         self.target_update_frequency = target_update_frequency
         self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)
         self.cumulative_z_losses = np.zeros(self.n_bellman_iterations)
@@ -159,7 +159,7 @@ class GiDQN:
         z_values = jax.vmap(self.network.apply, in_axes=(0, None))(zparams, sample.state)[:, sample.action]
         z_loss = z_values * jax.lax.stop_gradient(z_values - td_errors)
 
-        if self.freeze_first_head:
+        if not self.unfreeze_first_head:
             targets = targets.at[0].set(
                 0.0
             )  # cut off the gradient flow to the first Q-Network Q_0 by overwriting the first target with a constant if self.freeze_first_head
