@@ -120,6 +120,13 @@ def add_base_arguments(parser: argparse.ArgumentParser):
         default=10_000,
     )
     parser.add_argument(
+        "-stoch",
+        "--stochastic",
+        help="Whether the environment should be stochastic.",
+        type=bool,
+        default=True,
+    )
+    parser.add_argument(
         "-utd",
         "--update_to_data",
         help="Number of data points to collect per online Q-network update.",
@@ -176,6 +183,16 @@ def add_weight_decay(parser: argparse.ArgumentParser):
     )
 
 
+def add_freeze_first_head(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "-ffh",
+        "--freeze_first_head",
+        help="Whether the first network should be fixed for the duration of a Bellman iteration",
+        type=bool,
+        default=True,
+    )
+
+
 def add_target_sync_frequency(parser: argparse.ArgumentParser):
     parser.add_argument(
         "-tsf",
@@ -190,6 +207,7 @@ def add_target_sync_frequency(parser: argparse.ArgumentParser):
 def add_gidqn_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
+    add_freeze_first_head(parser)
 
 
 @output_added_arguments
@@ -206,3 +224,8 @@ def add_idqn_arguments(parser: argparse.ArgumentParser):
 @output_added_arguments
 def add_dqn_arguments(parser: argparse.ArgumentParser):
     return parser
+
+
+@output_added_arguments
+def add_dqnrc_arguments(parser: argparse.ArgumentParser):
+    add_weight_decay(parser)
