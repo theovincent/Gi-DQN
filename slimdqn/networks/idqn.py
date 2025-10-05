@@ -42,11 +42,11 @@ class iDQN:
         self.n_bellman_iterations = n_bellman_iterations
         self.network = DQNNet(features, architecture_type, n_actions)
 
+        # initialize K networks
         self.params = jax.vmap(self.network.init, in_axes=(0, None))(
-            jax.random.split(key, self.n_bellman_iterations),
-            jnp.zeros(observation_dim, dtype=jnp.float32),
-        )  # initialize K networks
-        self.target_params = self.params.copy()  # initialize Target networks
+            jax.random.split(key, self.n_bellman_iterations), jnp.zeros(observation_dim, dtype=jnp.float32)
+        )
+        self.target_params = self.params.copy()  # initialize target networks
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
         self.optimizer_state = self.optimizer.init(self.params)

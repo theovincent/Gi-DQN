@@ -34,10 +34,10 @@ class FiDQN:
         self.n_bellman_iterations = n_bellman_iterations
         self.network = DQNNet(features, architecture_type, n_actions)
 
+        # initialize K+1 networks
         self.params = jax.vmap(self.network.init, in_axes=(0, None))(
-            jax.random.split(key, self.n_bellman_iterations + 1),
-            jnp.zeros(observation_dim, dtype=jnp.float32),
-        )  # initialize  K+1 networks
+            jax.random.split(key, self.n_bellman_iterations + 1), jnp.zeros(observation_dim, dtype=jnp.float32)
+        )
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
         self.optimizer_state = self.optimizer.init(self.params)
@@ -70,7 +70,7 @@ class FiDQN:
 
             logs = {
                 "loss": np.mean(self.cumulative_losses) / (self.target_update_frequency / self.update_to_data),
-                "variance": np.mean(self.cumulative_variance) / (self.target_update_frequency / self.update_to_data),
+                "variance": self.cumulative_variance / (self.target_update_frequency / self.update_to_data),
             }
             for idx_network in range(0, min(5, self.n_bellman_iterations + 1)):
                 logs[f"networks/{idx_network}_loss"] = self.cumulative_losses[idx_network] / (
@@ -118,9 +118,8 @@ class FiDQN:
         )  # use networks 0 to K-1 to compute the targets
         td_errors = jax.lax.stop_gradient(targets - q_values)
 
-        targets = targets.at[0].set(
-            0.0
-        )  # cut off the gradient flow to the first Q-Network Q_0 by overwriting the first target with a constant
+        # cut off the gradient flow of the first Q-Network Q_0 by overwriting the first target with a constant
+        targets = targets.at[0].set(0.0)
         td_loss = targets * td_errors - q_values * td_errors
 
         return (

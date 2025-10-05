@@ -38,19 +38,18 @@ class GiDQN:
         self.n_bellman_iterations = n_bellman_iterations
         self.network = DQNNet(features, architecture_type, n_actions)
 
+        # initialize K+1 online networks
         self.params = jax.vmap(self.network.init, in_axes=(0, None))(
-            jax.random.split(key_params, self.n_bellman_iterations + 1),
-            jnp.zeros(observation_dim, dtype=jnp.float32),
-        )  # initialize  K+1 online networks
+            jax.random.split(key_params, self.n_bellman_iterations + 1), jnp.zeros(observation_dim, dtype=jnp.float32)
+        )
+        # initialize K TD-error estimator networks
         self.zparams = jax.vmap(self.network.init, in_axes=(0, None))(
-            jax.random.split(key_z_params, self.n_bellman_iterations),
-            jnp.zeros(observation_dim, dtype=jnp.float32),
-        )  # initialize K TD-error estimator networks
+            jax.random.split(key_z_params, self.n_bellman_iterations), jnp.zeros(observation_dim, dtype=jnp.float32)
+        )
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
-        self.z_optimizer = optax.adamw(
-            learning_rate, eps=adam_eps, weight_decay=weight_decay
-        )  # regularize the TD-error estimator networks
+        # regularize the TD-error estimator networks
+        self.z_optimizer = optax.adamw(learning_rate, eps=adam_eps, weight_decay=weight_decay)
 
         self.optimizer_state = self.optimizer.init(self.params)
         self.z_optimizer_state = self.z_optimizer.init(self.zparams)
@@ -160,9 +159,8 @@ class GiDQN:
         z_loss = z_values * jax.lax.stop_gradient(z_values - td_errors)
 
         if not self.unfreeze_first_head:
-            targets = targets.at[0].set(
-                0.0
-            )  # cut off the gradient flow to the first Q-Network Q_0 by overwriting the first target with a constant if we dont want to unfreeze it
+            # cut off the gradient flow of the first Q-Network Q_0 by overwriting the first target with a constant if we dont want to unfreeze it
+            targets = targets.at[0].set(0.0)
         td_loss = targets * jax.lax.stop_gradient(z_values) - q_values * jax.lax.stop_gradient(td_errors)
 
         return (
@@ -171,8 +169,6 @@ class GiDQN:
             jnp.square(z_values - td_errors),
             (targets**2 - targets * q_values).mean(),
         )
-
-        # TDs * jnp.square(targets - TDs);
 
     def compute_target(self, params: FrozenDict, sample: ReplayElement):
         # computes the target value for single sample

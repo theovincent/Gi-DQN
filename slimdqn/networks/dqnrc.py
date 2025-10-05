@@ -30,19 +30,14 @@ class DQNRC:
 
         self.network = DQNNet(features, architecture_type, n_actions)
 
-        self.params = self.network.init(
-            key_params,
-            jnp.zeros(observation_dim, dtype=jnp.float32),
-        )  # initialize online network
-        self.zparams = self.network.init(
-            key_z_params,
-            jnp.zeros(observation_dim, dtype=jnp.float32),
-        )  # initialize TD-error estimator networks
+        # initialize online network
+        self.params = self.network.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32))
+        # initialize TD-error estimator networks
+        self.zparams = self.network.init(key_z_params, jnp.zeros(observation_dim, dtype=jnp.float32))
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
-        self.z_optimizer = optax.adamw(
-            learning_rate, eps=adam_eps, weight_decay=weight_decay
-        )  # regularize the TD-error estimator network
+        # regularize the TD-error estimator network
+        self.z_optimizer = optax.adamw(learning_rate, eps=adam_eps, weight_decay=weight_decay)
 
         self.optimizer_state = self.optimizer.init(self.params)
         self.z_optimizer_state = self.z_optimizer.init(self.zparams)
@@ -62,11 +57,7 @@ class DQNRC:
 
             (self.params, self.zparams, self.optimizer_state, self.z_optimizer_state, q_losses, z_losses, variance) = (
                 self.learn_on_batch(
-                    self.params,
-                    self.zparams,
-                    self.optimizer_state,
-                    self.z_optimizer_state,
-                    batch_samples,
+                    self.params, self.zparams, self.optimizer_state, self.z_optimizer_state, batch_samples
                 )
             )
 
