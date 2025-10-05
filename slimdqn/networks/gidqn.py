@@ -162,7 +162,7 @@ class GiDQN:
         if not self.unfreeze_first_head:
             targets = targets.at[0].set(
                 0.0
-            )  # cut off the gradient flow to the first Q-Network Q_0 by overwriting the first target with a constant if self.freeze_first_head
+            )  # cut off the gradient flow to the first Q-Network Q_0 by overwriting the first target with a constant if we dont want to unfreeze it
         td_loss = targets * jax.lax.stop_gradient(z_values) - q_values * jax.lax.stop_gradient(td_errors)
 
         return (

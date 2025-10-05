@@ -121,7 +121,7 @@ class FiDQN:
         targets = targets.at[0].set(
             0.0
         )  # cut off the gradient flow to the first Q-Network Q_0 by overwriting the first target with a constant
-        td_loss = targets * jax.lax.stop_gradient(td_errors) - q_values * jax.lax.stop_gradient(td_errors)
+        td_loss = targets * td_errors - q_values * td_errors
 
         return (
             td_loss,
