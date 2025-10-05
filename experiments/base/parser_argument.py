@@ -221,7 +221,7 @@ def add_idqn_arguments(parser: argparse.ArgumentParser):
 
 @output_added_arguments
 def add_dqn_arguments(parser: argparse.ArgumentParser):
-    return parser
+    pass
 
 
 @output_added_arguments
