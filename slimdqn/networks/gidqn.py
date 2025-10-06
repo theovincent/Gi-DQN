@@ -30,8 +30,8 @@ class GiDQN:
         update_to_data: int,
         unfreeze_first_head: bool,
         target_update_frequency: int,
+        weight_decay: float,
         adam_eps: float = 1e-8,
-        weight_decay: float = 0.001,
     ):
         key_params, key_z_params = jax.random.split(key, 2)
 
@@ -70,11 +70,7 @@ class GiDQN:
 
             (self.params, self.zparams, self.optimizer_state, self.z_optimizer_state, q_losses, z_losses, variance) = (
                 self.learn_on_batch(
-                    self.params,
-                    self.zparams,
-                    self.optimizer_state,
-                    self.z_optimizer_state,
-                    batch_samples,
+                    self.params, self.zparams, self.optimizer_state, self.z_optimizer_state, batch_samples
                 )
             )
 
@@ -110,12 +106,7 @@ class GiDQN:
 
     @partial(jax.jit, static_argnames="self")
     def learn_on_batch(
-        self,
-        params: FrozenDict,
-        zparams: FrozenDict,
-        optimizer_state,
-        z_optimizer_state,
-        batch_samples,
+        self, params: FrozenDict, zparams: FrozenDict, optimizer_state, z_optimizer_state, batch_samples
     ):
         (grad_loss, z_grad_loss), (q_losses, z_losses, variance) = jax.grad(
             self.loss_on_batch, has_aux=True, argnums=(0, 1)

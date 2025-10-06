@@ -55,9 +55,7 @@ class FiDQN:
             batch_samples = replay_buffer.sample()
 
             (self.params, self.optimizer_state, losses, variance) = self.learn_on_batch(
-                self.params,
-                self.optimizer_state,
-                batch_samples,
+                self.params, self.optimizer_state, batch_samples
             )
 
             self.cumulative_losses += losses
@@ -83,50 +81,34 @@ class FiDQN:
         return False, {}
 
     @partial(jax.jit, static_argnames="self")
-    def learn_on_batch(
-        self,
-        params: FrozenDict,
-        optimizer_state,
-        batch_samples,
-    ):
+    def learn_on_batch(self, params: FrozenDict, optimizer_state, batch_samples):
         grad_loss, (losses, variance) = jax.grad(self.loss_on_batch, has_aux=True)(params, batch_samples)
-
         updates, optimizer_state = self.optimizer.update(grad_loss, optimizer_state, params)
-
         params = optax.apply_updates(params, updates)
 
         return (params, optimizer_state, losses, variance)
 
     def loss_on_batch(self, params: FrozenDict, samples):
         losses, mse_losses, variances = jax.vmap(self.loss, in_axes=(None, 0))(params, samples)
-        return losses.sum(axis=-1).mean(), (
-            mse_losses.mean(axis=0),
-            variances.mean(),
-        )
 
-    def loss(
-        self,
-        params: FrozenDict,
-        sample: ReplayElement,
-    ):
+        return losses.sum(axis=-1).mean(), (mse_losses.mean(axis=0), variances.mean())
+
+    def loss(self, params: FrozenDict, sample: ReplayElement):
         # computes the loss for a single sample
+
+        # use networks 1 to K to compute the Q-values
         q_values = jax.vmap(self.network.apply, in_axes=(0, None))(jax.tree.map(lambda x: x[1:], params), sample.state)[
             :, sample.action
-        ]  # use networks 1 to K to compute the Q-values
-        targets = jax.vmap(self.compute_target, in_axes=(0, None))(
-            jax.tree.map(lambda x: x[:-1], params), sample
-        )  # use networks 0 to K-1 to compute the targets
+        ]
+        # use networks 0 to K-1 to compute the targets
+        targets = jax.vmap(self.compute_target, in_axes=(0, None))(jax.tree.map(lambda x: x[:-1], params), sample)
         td_errors = jax.lax.stop_gradient(targets - q_values)
 
         # cut off the gradient flow of the first Q-Network Q_0 by overwriting the first target with a constant
         targets = targets.at[0].set(0.0)
         td_loss = targets * td_errors - q_values * td_errors
 
-        return (
-            td_loss,
-            jnp.square(td_errors),
-            (targets**2 - targets * q_values).mean(),
-        )
+        return (td_loss, jnp.square(td_errors), (targets**2 - targets * q_values).mean())
 
     def compute_target(self, params: FrozenDict, sample: ReplayElement):
         # computes the target value for single sample
