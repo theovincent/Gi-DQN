@@ -17,8 +17,7 @@ def run(argvs=sys.argv[1:]):
 
     q_key, train_key = jax.random.split(jax.random.PRNGKey(p["seed"]))
 
-    wind_power, turbulence_power = p["wind_and_turbulence_power"]
-    env = LunarLander(wind_power=wind_power, turbulence_power=turbulence_power)
+    env = LunarLander(wind_power=p["wind_and_turbulence_power"][0], turbulence_power=p["wind_and_turbulence_power"][1])
     rb = ReplayBuffer(
         sampling_distribution=UniformSamplingDistribution(p["seed"]),
         batch_size=p["batch_size"],
