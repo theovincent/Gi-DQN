@@ -12,6 +12,8 @@ from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 @jax.jit
 def shift_params(x):
+    # Each online network is updated to the following online network
+    # \theta_k <- \theta_{k + 1}, i.e., params[k] <- params[k + 1]
     return jax.tree.map(lambda x: x.at[:-1].set(x[1:]), x)  # params[t] = params[t+1] for t in range(params)
 
 
@@ -65,10 +67,7 @@ class iDQN:
             batch_samples = replay_buffer.sample()
 
             (self.params, self.optimizer_state, losses, variance) = self.learn_on_batch(
-                self.params,
-                self.target_params,
-                self.optimizer_state,
-                batch_samples,
+                self.params, self.target_params, self.optimizer_state, batch_samples
             )
 
             self.cumulative_losses += losses
@@ -77,7 +76,10 @@ class iDQN:
     def update_target_params(self, step: int):
         # update target network parameters every target_update_frequency steps. This starts the next Bellman iteration
         if step % self.target_update_frequency == 0:
+            # Each target network is updated to its respective online network
+            # \bar{\theta}_k <- \theta_{k + 1}, i.e., target_params[k] <- params[k]
             self.target_params = self.params.copy()
+            # Window shift
             self.params = shift_params(self.params)
 
             logs = {
@@ -98,13 +100,7 @@ class iDQN:
         return False, {}
 
     @partial(jax.jit, static_argnames="self")
-    def learn_on_batch(
-        self,
-        params: FrozenDict,
-        target_params: FrozenDict,
-        optimizer_state,
-        batch_samples,
-    ):
+    def learn_on_batch(self, params: FrozenDict, target_params: FrozenDict, optimizer_state, batch_samples):
         grad_loss, (losses, variance) = jax.grad(self.loss_on_batch, has_aux=True)(params, target_params, batch_samples)
 
         updates, optimizer_state = self.optimizer.update(grad_loss, optimizer_state, params)
@@ -115,26 +111,19 @@ class iDQN:
 
     def loss_on_batch(self, params: FrozenDict, target_params: FrozenDict, samples):
         losses, variances = jax.vmap(self.loss, in_axes=(None, None, 0))(params, target_params, samples)
+
         return losses.sum(axis=-1).mean(), (
             losses.mean(axis=0),  # mean over the samples but keep networks separated
             variances.mean(),
         )
 
-    def loss(
-        self,
-        params: FrozenDict,
-        target_params: FrozenDict,
-        sample: ReplayElement,
-    ):
+    def loss(self, params: FrozenDict, target_params: FrozenDict, sample: ReplayElement):
         # computes the loss for a single sample
         q_values = jax.vmap(self.network.apply, in_axes=(0, None))(params, sample.state)[:, sample.action]
         targets = jax.vmap(self.compute_target, in_axes=(0, None))(target_params, sample)
         td_errors = targets - q_values
 
-        return (
-            jnp.square(td_errors),
-            (targets**2 - targets * q_values).mean(),
-        )
+        return (jnp.square(td_errors), (targets**2 - targets * q_values).mean())
 
     def compute_target(self, params: FrozenDict, sample: ReplayElement):
         # computes the target value for single sample

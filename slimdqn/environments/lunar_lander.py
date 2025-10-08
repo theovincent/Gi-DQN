@@ -1,15 +1,16 @@
 import gymnasium as gym
 import numpy as np
+import jax
 
 
 class LunarLander:
-    def __init__(self, render_mode=None, deterministic: bool = False):
-        self.env = (
-            gym.make("LunarLander-v3", render_mode=render_mode)
-            if deterministic
-            else gym.make(
-                "LunarLander-v3", render_mode=render_mode, enable_wind=True, wind_power=10, turbulence_power=1
-            )
+    def __init__(self, wind_power: float, turbulence_power: float, render_mode=None):
+        self.env = gym.make(
+            "LunarLander-v3",
+            render_mode=render_mode,
+            enable_wind=True,
+            wind_power=wind_power,
+            turbulence_power=turbulence_power,
         )
         self.observation_shape = self.env.observation_space.shape
         self.n_actions = self.env.action_space.n

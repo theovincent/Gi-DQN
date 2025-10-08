@@ -120,10 +120,12 @@ def add_base_arguments(parser: argparse.ArgumentParser):
         default=10_000,
     )
     parser.add_argument(
-        "--deterministic",
-        help="Whether the environment should be deterministic.",
-        action="store_true",
-        default=False,
+        "-wtp",
+        "--wind_and_turbulence_power",
+        nargs=2,
+        help="List of wind power (0.0 - 20.0) and turbulence power (0.0 - 2.0)",
+        type=float,
+        default=[15.0, 1.5],
     )
     parser.add_argument(
         "-utd",
