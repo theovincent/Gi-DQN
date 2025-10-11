@@ -97,6 +97,9 @@ def store_params(p: dict, shared_params: List[str], agent_params: List[str]):
                 params_dict = json.load(open(params_path, "r"))
                 loaded = True
             except json.JSONDecodeError:
+                print(
+                    "The file parameters.json might be corrupted. Make sure to leave some time (2 sec) before launching a different methods."
+                )
                 pass
     else:
         params_dict = {}
