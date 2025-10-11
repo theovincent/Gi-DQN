@@ -16,14 +16,14 @@ for lr in "${LEARNING_RATES[@]}"
 do
   for tuf in "${TARGET_UPDATE_FREQUENCIES[@]}"
   do
-    SHARED_NAME="tuf${tuf}_lr${lr}"
+    SHARED_NAME="sa25_wd${WEIGHT_DECAY}_tuf${tuf}_lr${lr}"
     SHARED_ARGS="$SHARED_ARGS --first_seed 1 --last_seed 1 --n_parallel_seeds 1 --learning_rate $lr"
 
-    launch_job/mountain_car/cluster_dqn.sh --experiment_name $SHARED_NAME $SHARED_ARGS
-    launch_job/mountain_car/cluster_dqnrc.sh --experiment_name $SHARED_NAME $SHARED_ARGS --weight_decay $WEIGHT_DECAY
-    launch_job/mountain_car/cluster_idqn.sh --experiment_name $SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --target_sync_frequency $TARGET_SYNC_FREQ
-    launch_job/mountain_car/cluster_fidqn.sh --experiment_name $SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS
-    launch_job/mountain_car/cluster_gidqn.sh --experiment_name $SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY
-    launch_job/mountain_car/cluster_gidqn.sh --experiment_name unfrozen_$SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY --unfreeze_first_head
+    launch_job/mountain_car/${PLATFORM}_dqn.sh --experiment_name $SHARED_NAME $SHARED_ARGS
+    launch_job/mountain_car/${PLATFORM}_dqnrc.sh --experiment_name $SHARED_NAME $SHARED_ARGS --weight_decay $WEIGHT_DECAY
+    launch_job/mountain_car/${PLATFORM}_idqn.sh --experiment_name $SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --target_sync_frequency $TARGET_SYNC_FREQ
+    launch_job/mountain_car/${PLATFORM}_fidqn.sh --experiment_name $SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS
+    launch_job/mountain_car/${PLATFORM}_gidqn.sh --experiment_name $SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY
+    launch_job/mountain_car/${PLATFORM}_gidqn.sh --experiment_name unfrozen_$SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY --unfreeze_first_head
   done
 done
