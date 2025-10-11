@@ -40,7 +40,7 @@ class DQN:
         self.cumulative_variance = 0
 
     def update_online_params(self, step: int, replay_buffer: ReplayBuffer):
-        if step % self.update_to_data == 0:
+        for _ in range(int(self.update_to_data)):
             batch_samples = replay_buffer.sample()
 
             self.params, self.optimizer_state, loss, variance = self.learn_on_batch(

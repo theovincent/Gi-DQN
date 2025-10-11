@@ -15,9 +15,9 @@ def run(argvs=sys.argv[1:]):
     env_name, algo_name = os.path.abspath(__file__).split("/")[-2], os.path.abspath(__file__).split("/")[-1][:-3]
     p = prepare_logs(env_name, algo_name, argvs)
 
-    q_key, train_key = jax.random.split(jax.random.PRNGKey(p["seed"]))
+    q_key, train_key, env_key = jax.random.split(jax.random.PRNGKey(p["seed"]), 3)
 
-    env = MountainCar()
+    env = MountainCar(env_key)
     rb = ReplayBuffer(
         sampling_distribution=UniformSamplingDistribution(p["seed"]),
         batch_size=p["batch_size"],
@@ -26,7 +26,6 @@ def run(argvs=sys.argv[1:]):
         update_horizon=p["update_horizon"],
         gamma=p["gamma"],
         compress=True,
-        clipping=lambda reward, key: reward * float(jax.random.uniform(key, (), float, -1, 3)),
     )
     agent = DQNRC(
         q_key,

@@ -52,7 +52,7 @@ class DQNRC:
 
     def update_online_params(self, step: int, replay_buffer: ReplayBuffer):
         # Update the network parameters every `update_to_data` steps
-        if step % self.update_to_data == 0:
+        for _ in range(int(self.update_to_data)):
             batch_samples = replay_buffer.sample()
 
             (self.params, self.zparams, self.optimizer_state, self.z_optimizer_state, q_losses, z_losses, variance) = (

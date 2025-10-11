@@ -63,7 +63,7 @@ class iDQN:
 
     def update_online_params(self, step: int, replay_buffer: ReplayBuffer):
         # update online network parameters every update_to_data steps
-        if step % self.update_to_data == 0:
+        for _ in range(int(self.update_to_data)):
             batch_samples = replay_buffer.sample()
 
             (self.params, self.optimizer_state, losses, variance) = self.learn_on_batch(
