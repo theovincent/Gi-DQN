@@ -8,6 +8,8 @@ N_BELLMAN_ITERATIONS=5
 TARGET_SYNC_FREQ=5
 WEIGHT_DECAY=0.0001
 
+PLATFORM="cluster/cluster"  # stud/cluster local/local
+
 for lr in 1e-4 1e-1
 do
   for tuf in 25 1_000
