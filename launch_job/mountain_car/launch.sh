@@ -6,12 +6,18 @@ N_BELLMAN_ITERATIONS=5
 TARGET_SYNC_FREQ=5
 UPDATE_TO_DATA=1
 WEIGHT_DECAY=1
+DISABLE_WANDB=true
 
 # np.logspace(np.log10(start), np.log10(stop), 10)
 LEARNING_RATES=(5e-05 1.39e-04 3.87e-04 1.08e-03 3e-03 8.34e-03 2.32e-02 6.46e-02 1.8e-01 5e-01)
 TARGET_UPDATE_FREQUENCIES=(10 20 40 79 158 316 630 1257 2507 5000)
 
 PLATFORM="cluster/cluster"  # stud/cluster local/local
+
+if [[ $DISABLE_WANDB = true ]]
+then
+    SHARED_ARGS="$SHARED_ARGS --disable_wandb"
+fi
 
 for lr in "${LEARNING_RATES[@]}"
 do
