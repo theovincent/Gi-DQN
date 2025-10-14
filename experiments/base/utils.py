@@ -94,7 +94,7 @@ def store_params(p: dict, shared_params: List[str], agent_params: List[str]):
         loaded = False
         n_attempts = 0
         while not loaded and n_attempts <= 10:
-            n_attempt += 1
+            n_attempts += 1
             try:
                 params_dict = json.load(open(params_path, "r"))
                 loaded = True
