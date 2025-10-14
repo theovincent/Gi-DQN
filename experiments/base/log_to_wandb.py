@@ -10,8 +10,8 @@ def collect_data(base_experiment_name, env_name, algorithms, seeds, lrs, tufs, n
         data[algo] = {}
         for seed in seeds:
             data[algo][seed] = [{} for _ in range(n_epochs)]
-            for tuf in lrs:
-                for lr in tufs:
+            for lr in lrs:
+                for tuf in tufs:
                     returns = load_json_data(base_experiment_name, env_name, algo, seed, tuf, lr)["episode_returns"]
                     for epoch in range(n_epochs):
                         data[algo][seed][epoch][f"avg_return_{tuf}_{lr}"] = np.mean(returns[epoch])
