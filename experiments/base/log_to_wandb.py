@@ -40,7 +40,7 @@ def write_data_to_wandb(base_experiment_name, data, algorithms, seeds, n_epochs)
             wb = wandb.init(
                 project="Gi-DQN_grid",
                 mode="online",
-                config={"algo": algo},
+                config={"algo": algo, "seed": seed},
                 name=str(seed),
                 group=f"{base_experiment_name}_{algo}",
                 settings=wandb.Settings(_disable_stats=True),
