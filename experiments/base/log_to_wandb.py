@@ -13,6 +13,9 @@ def collect_data(get_experiment_name, env_name, algorithms, seeds, var1_options,
             for v1 in var1_options:
                 for v2 in var2_options:
                     returns = load_json_data(get_experiment_name, env_name, algo, seed, v1, v2)["episode_returns"]
+                    if len(returns) < n_epochs:
+                        print(get_experiment_name(v1, v2), f"seed {seed} was not finished. {n_epochs - len(returns)} epochs are missing.")
+                    
                     for epoch in range(n_epochs):
                         data[algo][seed][epoch][f"avg_return_{v1}_{v2}"] = np.mean(returns[epoch])
     return data
@@ -34,15 +37,15 @@ def load_json_data(get_experiment_name, env_name, algo, seed, v1, v2):
 
 def write_data_to_wandb(base_experiment_name, data, algorithms, seeds, n_epochs):
     for algo in algorithms:
-        print(f"Algorithm: {algo}")
+        print(f"Algorithm: {algo}", flush=True)
         for seed in seeds:
-            print(f"seed: {seed}")
+            print(f"seed: {seed}", flush=True)
             wb = wandb.init(
                 project="Gi-DQN_grid",
                 mode="online",
                 config={"algo": algo, "seed": seed},
                 name=str(seed),
-                group=f"{base_experiment_name}_{algo}",
+                group=f"{algo}_{base_experiment_name}",
                 settings=wandb.Settings(_disable_stats=True),
             )
 
@@ -52,16 +55,15 @@ def write_data_to_wandb(base_experiment_name, data, algorithms, seeds, n_epochs)
 
 
 if __name__ == "__main__":
-    base_experiment_name = "test_new_pipeline3"
-    get_experiment_name = lambda var1, var2: f"{base_experiment_name}_tuf{var1}_lr{var2}"
-    env_name = "lunar_lander"
-    algorithms = ["dqn", "dqnrc", "idqn", "fidqn", "gidqn", "gidqn_unfrozen"]
-    seeds = range(1, 4)
-    var1_options = ["25", "1_000"]
-    var2_options = ["1e-4", "1e-1"]
-    n_epochs = 25
+    get_experiment_name = lambda var1, var2: f"sa25_utd1_f{var1}_wd{var2}_tuf300_lr3e-03"
+    env_name = "mountain_car"
+    algorithms = ["dqnrc", "gidqn"] # ["dqn", "dqnrc", "idqn", "fidqn", "gidqn", "gidqn_unfrozen"]
+    seeds = range(1, 11)
+    var1_options = ["5", "8", "12", "20", "31", "49", "77", "121", "190", "300"]
+    var2_options = ["1e-05", "4.6e-05", "2.15e-04", "1e-03", "4.64e-03", "2.15e-02", "1e-01", "4.64e-01", "2.15e+00", "1e+01"]
+    n_epochs = 10
 
-    print("Checking experiments...")
+    print("Checking experiments...", flush=True)
     data = collect_data(get_experiment_name, env_name, algorithms, seeds, var1_options, var2_options, n_epochs)
-    print("All experiments found. Writing to wandb...")
-    write_data_to_wandb(base_experiment_name, data, algorithms, seeds, n_epochs)
+    print("All experiments found. Writing to wandb...", flush=True)
+    write_data_to_wandb(get_experiment_name("X", "X"), data, algorithms, seeds, n_epochs)
