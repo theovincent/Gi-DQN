@@ -57,7 +57,7 @@ def check_experiment(p: dict):
     # check if some parameters are different than the existing ones
     if os.path.exists(params_path):
         # PS: when many seeds are launched at the same time, the params exist but they are still being dumped.
-        #     This is why a json.JSONDecodeError might be raised, in which case no check need to be made.
+        #     This is why a json.JSONDecodeError might be raised, in which case no check needs to be made.
         try:
             loaded_old_params = json.load(open(params_path, "r"))
             old_params = loaded_old_params["shared_parameters"]
@@ -99,10 +99,13 @@ def store_params(p: dict, shared_params: List[str], agent_params: List[str]):
                 params_dict = json.load(open(params_path, "r"))
                 loaded = True
             except json.JSONDecodeError:
-                print(
-                    "The file parameters.json might be corrupted. Make sure to leave some time (2 sec) before launching a different methods."
-                )
                 pass
+        if not loaded: # the file might be corrupted
+            print(
+                "!!!! The file parameters.json might be corrupted. It has been deleted. A new file will be created."
+            )
+            os.remove(params_path)
+            store_params(p, shared_params, agent_params)
     else:
         params_dict = {}
 
