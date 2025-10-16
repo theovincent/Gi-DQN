@@ -14,8 +14,11 @@ def collect_data(get_experiment_name, env_name, algorithms, seeds, var1_options,
                 for v2 in var2_options:
                     returns = load_json_data(get_experiment_name, env_name, algo, seed, v1, v2)["episode_returns"]
                     if len(returns) < n_epochs:
-                        print(get_experiment_name(v1, v2), f"{algo} seed {seed} was not finished. {n_epochs - len(returns)} epochs are missing.")
-                    
+                        print(
+                            get_experiment_name(v1, v2),
+                            f"{algo} seed {seed} was not finished. {n_epochs - len(returns)} epochs are missing.",
+                        )
+
                     for epoch in range(n_epochs):
                         data[algo][seed][epoch][f"avg_return_{v1}_{v2}"] = np.mean(returns[epoch])
     return data
@@ -40,10 +43,11 @@ def write_data_to_wandb(base_experiment_name, data, algorithms, seeds, n_epochs)
         print(f"Algorithm: {algo}", flush=True)
         for seed in seeds:
             print(f"seed: {seed}", flush=True)
+            config = get_config(algo, seed)
             wb = wandb.init(
                 project="Gi-DQN_grid",
                 mode="online",
-                config={"algo": algo, "seed": seed},
+                config=config,
                 name=str(seed),
                 group=f"{algo}_{base_experiment_name}",
                 settings=wandb.Settings(_disable_stats=True),
@@ -54,15 +58,36 @@ def write_data_to_wandb(base_experiment_name, data, algorithms, seeds, n_epochs)
             wb.finish()
 
 
+def get_config(algo, seed):
+    config_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        f"../{env_name}/exp_output/{get_experiment_name(var1_options[0], var2_options[0])}/parameters.json",
+    )
+    config = json.load(open(config_path, "r"))
+
+    return config["shared_parameters"] | config[algo] | {"seed": seed, "algo_name": algo}
+
+
 if __name__ == "__main__":
-    get_experiment_name = lambda var1, var2: f"sa25_utd1_f32_wd1_tuf{var1}_lr{var2}"
-    env_name = "mountain_car"
+    get_experiment_name = lambda var1, var2: f"test_unfrozen_head_no_wind"
+    env_name = "lunar_lander"
     algorithms = ["dqn", "dqnrc", "idqn", "fidqn", "gidqn", "gidqn_unfrozen"]
-    seeds = range(1, 11)
+    seeds = [0]  # range(1, 4)
     # var1_options = ["5", "8", "12", "20", "31", "49", "77", "121", "190", "300"]
     var1_options = ["10", "20", "40", "79", "158", "316", "630", "1257", "2507", "5000"]
     # var2_options = ["1e-05", "4.6e-05", "2.15e-04", "1e-03", "4.64e-03", "2.15e-02", "1e-01", "4.64e-01", "2.15e+00", "1e+01"]
-    var2_options = ["5e-05", "1.39e-04", "3.87e-04", "1.08e-03", "3e-03", "8.34e-03", "2.32e-02", "6.46e-02", "1.8e-01", "5e-01"] # ["5e-05", "1.39e-04", "3.87e-04", "1.08e-03", "3e-03", "8.34e-03", "2.32e-02", "6.46e-02", "1.8e-01", "5e-01"]
+    var2_options = [
+        "5e-05",
+        "1.39e-04",
+        "3.87e-04",
+        "1.08e-03",
+        "3e-03",
+        "8.34e-03",
+        "2.32e-02",
+        "6.46e-02",
+        "1.8e-01",
+        "5e-01",
+    ]  # ["5e-05", "1.39e-04", "3.87e-04", "1.08e-03", "3e-03", "8.34e-03", "2.32e-02", "6.46e-02", "1.8e-01", "5e-01"]
     n_epochs = 10
 
     print("Checking experiments...", flush=True)

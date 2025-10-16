@@ -1,6 +1,6 @@
 SHARED_ARGS="--features 100 100 --replay_buffer_capacity 10000 --batch_size 32 --update_horizon 1 --gamma 0.99 \
     --horizon 1_000 --n_epochs 25 --n_training_steps_per_epoch 10_000 --update_to_data 1 --n_initial_samples 1_000 \
-    --epsilon_end 0.01 --epsilon_duration 1_000 -at fc"
+    --epsilon_end 0.01 --epsilon_duration 1_000 --architecture_type fc"
 
 WIND_POWER=15.0
 TURB_POWER=1.5
@@ -11,15 +11,19 @@ DISABLE_WANDB=true
 
 PLATFORM="stud/cluster"  # stud/cluster local/local
 
+# Parameters to loop over
+TUFS=(25 1_000)
+LRS=(1e-4 1e-1)
+
 
 if [[ $DISABLE_WANDB = true ]]
 then
     SHARED_ARGS="$SHARED_ARGS --disable_wandb"
 fi
 
-for lr in 1e-4  1e-1
+for lr in ${LRS[@]}
 do
-  for tuf in 25 1_000
+  for tuf in ${TUFS[@]}
   do
     SHARED_NAME="test_new_pipeline3_tuf${tuf}_lr${lr}"
     SHARED_ARGS="$SHARED_ARGS --first_seed 1 --last_seed 3 --n_parallel_seeds 1 --learning_rate $lr \
