@@ -1,0 +1,46 @@
+SHARED_ARGS="--replay_buffer_capacity 10_000 --batch_size 32 --update_horizon 1 --gamma 0.99 --horizon 1_000 \
+  --n_epochs 20 --n_training_steps_per_epoch 10_000 --n_initial_samples 1_000 --epsilon_end 0.01 \
+  --epsilon_duration 1_000 --architecture_type fc"
+
+N_BELLMAN_ITERATIONS=5
+TARGET_SYNC_FREQ=5
+UPDATE_TO_DATA=1
+FEATURES=64
+WEIGHT_DECAY=1
+DISABLE_WANDB=true
+WIND_POWER=12.0
+TURB_POWER=1.0
+
+# np.logspace(np.log10(start), np.log10(stop), 10)
+LEARNING_RATES=(5e-05 1.39e-04 3.87e-04 1.08e-03 3e-03 8.34e-03 2.32e-02 6.46e-02 1.8e-01 5e-01)
+TARGET_UPDATE_FREQUENCIES=(10 20 40 79 158 316 630 1257 2507 5000)
+
+PLATFORM="stud/cluster"  # stud/cluster local/local
+
+if [[ $DISABLE_WANDB = true ]]
+then
+    SHARED_ARGS="$SHARED_ARGS --disable_wandb"
+fi
+
+for lr in "${LEARNING_RATES[@]}"
+do
+  for tuf in "${TARGET_UPDATE_FREQUENCIES[@]}"
+  do
+    SHARED_NAME="utd${UPDATE_TO_DATA}_f${FEATURES}_wd${WEIGHT_DECAY}_tuf${tuf}_lr${lr}_lunar_lander"
+    SHARED_ARGS="$SHARED_ARGS --first_seed 1 --last_seed 10 --n_parallel_seeds 1  --features $FEATURES $FEATURES \
+      --learning_rate $lr --target_update_frequency $tuf --wind_and_turbulence_power $WIND_POWER $TURB_POWER"
+
+    launch_job/lunar_lander/${PLATFORM}_dqn.sh --experiment_name $SHARED_NAME $SHARED_ARGS
+    sleep 2
+    launch_job/lunar_lander/${PLATFORM}_dqnrc.sh --experiment_name $SHARED_NAME $SHARED_ARGS --weight_decay $WEIGHT_DECAY
+    sleep 2
+    launch_job/lunar_lander/${PLATFORM}_idqn.sh --experiment_name $SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --target_sync_frequency $TARGET_SYNC_FREQ
+    sleep 2
+    launch_job/lunar_lander/${PLATFORM}_fidqn.sh --experiment_name $SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS
+    sleep 2
+    launch_job/lunar_lander/${PLATFORM}_gidqn.sh --experiment_name $SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY
+    sleep 2
+    launch_job/lunar_lander/${PLATFORM}_gidqn.sh --experiment_name unfrozen_$SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY --unfreeze_first_head
+    #sleep 5m
+  done
+done
