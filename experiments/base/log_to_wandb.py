@@ -73,15 +73,28 @@ def get_config(algo, seed):
 
 if __name__ == "__main__":
     # get_experiment_name = lambda var1, var2: f"sa25_utd1_f32_wd1_tuf{var1}_lr{var2}"
-    get_experiment_name = lambda var1, var2: f"sa25_utd1_f{var1}_wd{var2}_tuf300_lr3e-03"
-    env_name = "mountain_car"
-    algorithms = ["dqnrc", "gidqn"] # ["dqn", "dqnrc", "idqn", "fidqn", "gidqn", "gidqn_unfrozen"]
+    get_experiment_name = lambda var1, var2: f"f64_wd1_tuf{var1}_lr{var2}"
+    env_name = "lunar_lander"
+    algorithms = ["dqn", "dqnrc", "idqn", "fidqn", "gidqn", "gidqn_unfrozen"]  # ["dqnrc", "gidqn"]
     seeds = range(1, 11)
     # var1_options = ["10", "20", "40", "79", "158", "316", "630", "1257", "2507", "5000"]
-    var1_options = ["5", "8", "12", "20", "31", "49", "77", "121", "190", "300"]
+    # var1_options = ["5", "8", "12", "20", "31", "49", "77", "121", "190", "300"]
     # var2_options = ["5e-05", "1.39e-04", "3.87e-04", "1.08e-03", "3e-03", "8.34e-03", "2.32e-02", "6.46e-02", "1.8e-01", "5e-01"]
-    var2_options = ["1e-05", "4.6e-05", "2.15e-04", "1e-03", "4.64e-03", "2.15e-02", "1e-01", "4.64e-01", "2.15e+00", "1e+01"]
-    n_epochs = 10
+    # var2_options = ["1e-05", "4.6e-05", "2.15e-04", "1e-03", "4.64e-03", "2.15e-02", "1e-01", "4.64e-01", "2.15e+00", "1e+01"]
+    var2_options = [
+        "5e-05",
+        "1.39e-04",
+        "3.87e-04",
+        "1.08e-03",
+        "3e-03",
+        "8.34e-03",
+        "2.32e-02",
+        "6.46e-02",
+        "1.8e-01",
+        "5e-01",
+    ]
+    var1_options = [10, 20, 40, 79, 158, 316, 630, 1257, 2507, 5000]
+    n_epochs = 20
 
     print("Checking experiments...", flush=True)
     data = collect_data(get_experiment_name, env_name, algorithms, seeds, var1_options, var2_options, n_epochs)
