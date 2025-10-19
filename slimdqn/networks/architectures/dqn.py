@@ -1,6 +1,9 @@
 from typing import Sequence
 
 import flax.linen as nn
+import jax
+import flax.core
+from flax.core import FrozenDict
 import jax.numpy as jnp
 
 
@@ -33,6 +36,7 @@ class DQNNet(nn.Module):
     features: Sequence[int]
     architecture_type: str
     n_actions: int
+    n_heads: int = 1
 
     @nn.compact
     def __call__(self, x):
@@ -67,4 +71,9 @@ class DQNNet(nn.Module):
         for idx_layer in range(idx_feature_start, len(self.features)):
             x = nn.relu((nn.Dense(self.features[idx_layer], kernel_init=initializer)(x)))
 
-        return nn.Dense(self.n_actions, kernel_init=initializer)(x)
+        if self.n_heads == 1:
+            return nn.Dense(self.n_actions, name="Dense_final", kernel_init=initializer)(x)
+        else:
+            return nn.Dense(self.n_heads * self.n_actions, name="Dense_final", kernel_init=initializer)(x).reshape(
+                (self.n_heads, self.n_actions)
+            )

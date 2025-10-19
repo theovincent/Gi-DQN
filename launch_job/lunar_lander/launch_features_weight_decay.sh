@@ -27,7 +27,7 @@ for features in "${FEATURES[@]}"
 do
   for weight_decay in "${WEIGHT_DECAY[@]}"
   do
-    SHARED_NAME="utd${UPDATE_TO_DATA}_f${features}_wd${weight_decay}_tuf${TARGET_UPDATE_FREQUENCIES}_lr${LEARNING_RATES}_first_seeds"
+    SHARED_NAME="utd${UPDATE_TO_DATA}_f${features}_wd${weight_decay}_tuf${TARGET_UPDATE_FREQUENCIES}_lr${LEARNING_RATES}"
     SHARED_ARGS="$SHARED_ARGS --first_seed 1 --last_seed 3 --n_parallel_seeds 1 --features $features $features \
       --learning_rate $LEARNING_RATES --target_update_frequency $TARGET_UPDATE_FREQUENCIES --wind_and_turbulence_power $WIND_POWER $TURB_POWER"
 
@@ -43,5 +43,3 @@ do
     sleep 2
     launch_job/lunar_lander/${PLATFORM}_gidqn.sh --experiment_name unfrozen_$SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $weight_decay --unfreeze_first_head
     sleep 5m
-  done
-done
