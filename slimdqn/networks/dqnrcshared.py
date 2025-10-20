@@ -34,16 +34,14 @@ class DQNRCShared:
         self.params = self.network.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32))
 
         # regularize the TD-error estimator network
-        self.optimizer = optax.adamw(
-            learning_rate,
-            eps=adam_eps,
-            weight_decay=weight_decay,
-            mask=jax.tree_util.tree_map_with_path(
-                lambda path, leaf: (
-                    jnp.ones_like(leaf).at[... : self.n_actions].set(0) if "Dense_final" in path[1].key else False
-                ),
-                self.params,
-            ),
+        mask = jax.tree_util.tree_map_with_path(
+            lambda path, leaf: (True if "Dense_final" in path[1].key else False),
+            self.params,
+        )
+
+        self.optimizer = optax.masked(
+            optax.adamw(learning_rate, eps=adam_eps, weight_decay=weight_decay),
+            mask,
         )
 
         self.optimizer_state = self.optimizer.init(self.params)
@@ -102,7 +100,7 @@ class DQNRCShared:
 
     def loss(self, params: FrozenDict, sample: ReplayElement):
         # computes the loss for a single sample
-        output = self.network.apply(params, sample.state)[:, sample.action]
+        output = self.network.apply(params, sample.state)[..., sample.action]
         q_value, z_value = output[0], output[1]
         next_q_value = self.network.apply(params, sample.next_state)[0]
 

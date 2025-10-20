@@ -211,12 +211,30 @@ def add_gidqn_arguments(parser: argparse.ArgumentParser):
 
 
 @output_added_arguments
+def add_gidqnshared_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_weight_decay(parser)
+    add_freeze_first_head(parser)
+
+
+@output_added_arguments
 def add_fidqn_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
 
 
 @output_added_arguments
+def add_fidqnshared_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+
+
+@output_added_arguments
 def add_idqn_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_target_sync_frequency(parser)
+
+
+@output_added_arguments
+def add_idqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_target_sync_frequency(parser)
 
