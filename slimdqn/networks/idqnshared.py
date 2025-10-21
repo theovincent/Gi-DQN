@@ -1,33 +1,29 @@
 from functools import partial
-import flax.linen as nn
 import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
-from flax.core import FrozenDict, freeze
+from flax.core import FrozenDict
 
 from slimdqn.networks.architectures.dqn import DQNNet
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 
 @partial(jax.jit, static_argnames="n_actions")
-def copy_online_params_to_targets(params_online, n_actions):
-    first_kernel, remaining_kernels = jnp.split(params_online["params"]["Dense_final"]["kernel"], [n_actions], axis=1)
-    first_bias, remaining_biases = jnp.split(params_online["params"]["Dense_final"]["bias"], [n_actions], axis=0)
-
-    first_params = params_online.copy(
-        add_or_replace={
-            "params": params_online["params"].copy(
-                add_or_replace={"Dense_final": {"kernel": first_kernel, "bias": first_bias}}
-            )
-        }
+def update_target_params(params, n_actions):
+    first_params = optax.tree_utils.tree_set(
+        params,
+        Dense_final={
+            "kernel": params["params"]["Dense_final"]["kernel"][:, :n_actions],
+            "bias": params["params"]["Dense_final"]["bias"][:n_actions],
+        },
     )
-    remaining_params = params_online.copy(
-        add_or_replace={
-            "params": params_online["params"].copy(
-                add_or_replace={"Dense_final": {"kernel": remaining_kernels, "bias": remaining_biases}}
-            )
-        }
+    remaining_params = optax.tree_utils.tree_set(
+        params,
+        Dense_final={
+            "kernel": params["params"]["Dense_final"]["kernel"][:, n_actions:],
+            "bias": params["params"]["Dense_final"]["bias"][n_actions:],
+        },
     )
 
     return first_params, remaining_params
@@ -37,34 +33,24 @@ def copy_online_params_to_targets(params_online, n_actions):
 def shift_params(params, n_actions):
     # Each online network is updated to the following online network
     # \theta_k <- \theta_{k + 1}, i.e., params[k] <- params[k + 1]
-    bias, kernel = params["params"]["Dense_final"]["bias"], params["params"]["Dense_final"]["kernel"]
+    kernel = params["params"]["Dense_final"]["kernel"]
+    bias = params["params"]["Dense_final"]["bias"]
+    params["params"]["Dense_final"]["kernel"] = kernel.at[:, :-n_actions].set(kernel[:, n_actions:])
+    params["params"]["Dense_final"]["bias"] = bias.at[:-n_actions].set(bias[n_actions:])
 
-    shifted_bias = bias.at[:-n_actions].set(bias[n_actions:])
-    shifted_kernel = kernel.at[..., :-n_actions].set(kernel[..., n_actions:])
-    shifted_params = params.copy(
-        add_or_replace={
-            "params": params["params"].copy(
-                add_or_replace={"Dense_final": {"kernel": shifted_kernel, "bias": shifted_bias}}
-            )
-        }
-    )
-
-    return shifted_params
+    return params
 
 
 @partial(jax.jit, static_argnames="n_actions")
 def sync_target_params(params, n_actions):
     # Each target network is synchronized to the online network it represents
     # \bar{\theta}_k <- \theta_k, i.e., target_params[k] <- params[k-1]
-    kernel, bias = (
-        params["params"]["Dense_final"]["kernel"][..., :-n_actions],
-        params["params"]["Dense_final"]["bias"][:-n_actions],
-    )
-
-    return params.copy(
-        add_or_replace={
-            "params": params["params"].copy(add_or_replace={"Dense_final": {"kernel": kernel, "bias": bias}})
-        }
+    return optax.tree_utils.tree_set(
+        params,
+        Dense_final={
+            "kernel": params["params"]["Dense_final"]["kernel"][:, :-n_actions],
+            "bias": params["params"]["Dense_final"]["bias"][:-n_actions],
+        },
     )
 
 
@@ -89,14 +75,13 @@ class iDQNShared:
         self.n_actions = n_actions
         self.n_bellman_iterations = n_bellman_iterations
         self.online_networks = DQNNet(features, architecture_type, n_actions, self.n_bellman_iterations)
-        self.first_target_network = DQNNet(features, architecture_type, n_actions)
+        self.root_network = DQNNet(features, architecture_type, n_actions)
         self.remaining_target_networks = DQNNet(features, architecture_type, n_actions, self.n_bellman_iterations - 1)
 
-        # initialize K networks
-        self.params = freeze(self.online_networks.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32)))
-        self.first_target_params, self.remaining_target_params = copy_online_params_to_targets(
-            self.params, n_actions
-        )  # initialize target networks
+        # initialize 1 network with K heads
+        self.params = self.online_networks.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32))
+        # initialize the target networks
+        self.first_target_params, self.remaining_target_params = update_target_params(self.params, n_actions)
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
         self.optimizer_state = self.optimizer.init(self.params)
@@ -126,9 +111,7 @@ class iDQNShared:
         if step % self.target_update_frequency == 0:
             # Each target network is updated to its respective online network
             # \bar{\theta}_k <- \theta_{k + 1}, i.e., target_params[k] <- params[k]
-            self.first_target_params, self.remaining_target_params = copy_online_params_to_targets(
-                self.params, self.n_actions
-            )
+            self.first_target_params, self.remaining_target_params = update_target_params(self.params, self.n_actions)
             # Window shift
             self.params = shift_params(self.params, self.n_actions)
 
@@ -188,8 +171,8 @@ class iDQNShared:
         sample: ReplayElement,
     ):
         # computes the loss for a single sample
-        q_values = self.online_networks.apply(params, sample.state)[..., sample.action]
-        next_q_value_first_target = self.first_target_network.apply(first_target_params, sample.next_state)
+        q_values = self.online_networks.apply(params, sample.state)[:, sample.action]
+        next_q_value_first_target = self.root_network.apply(first_target_params, sample.next_state)
         next_q_values_remaining_targets = self.remaining_target_networks.apply(
             remaining_target_params, sample.next_state
         )
@@ -197,18 +180,16 @@ class iDQNShared:
         targets = self.compute_target(next_q_values, sample)
         td_errors = targets - q_values
 
-        return (jnp.square(td_errors), (targets**2 - targets * q_values).mean())
+        return jnp.square(td_errors), (targets**2 - targets * q_values).mean()
 
-    def compute_target(self, next_q_values, sample: ReplayElement):
+    def compute_target(self, next_q, sample: ReplayElement):
         # computes the target value for single sample
-        return sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * jnp.max(
-            next_q_values, axis=-1
-        )
+        return sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * jnp.max(next_q, axis=-1)
 
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray, key: jax.Array):
         # computes the best action for a single state
-        idx_params = jax.random.randint(key, (), 1, self.n_bellman_iterations + 1)
+        idx_params = jax.random.randint(key, (), 0, self.n_bellman_iterations)
         return jnp.argmax(self.online_networks.apply(params, state)[idx_params])
 
     def get_model(self):
