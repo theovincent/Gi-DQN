@@ -25,17 +25,18 @@ def roll(x, n_bellman_iterations, n_actions):
 def shift_params(params, n_bellman_iterations, n_actions):
     # Each online network is updated to the following online network
     # \theta_k <- \theta_{k + 1}, i.e., params[k] <- params[k + 1]
-    last_layer = params["params"]["Dense_final"]
-    shifted_bias = roll(last_layer["bias"], n_bellman_iterations, n_actions)
-    shifted_kernel = roll(last_layer["kernel"], n_bellman_iterations, n_actions)
+    kernel, bias = params["params"]["Dense_final"]["kernel"], params["params"]["Dense_final"]["bias"]
 
-    shifted_head_params = params.copy(
+    shifted_bias = roll(bias, n_bellman_iterations, n_actions)
+    shifted_kernel = roll(kernel, n_bellman_iterations, n_actions)
+
+    shifted_root_params = params.copy(
         add_or_replace={
             "params": params["params"].copy(
                 add_or_replace={
                     "Dense_final": {
-                        "kernel": last_layer["kernel"][..., :n_actions],
-                        "bias": last_layer["bias"][:n_actions],
+                        "kernel": kernel[..., :n_actions],
+                        "bias": bias[:n_actions],
                     }
                 }
             )
@@ -48,7 +49,7 @@ def shift_params(params, n_bellman_iterations, n_actions):
             )
         }
     )
-    return shifted_head_params, shifted_params
+    return shifted_root_params, shifted_params
 
 
 class GiDQNShared:
@@ -78,17 +79,15 @@ class GiDQNShared:
         # 2K Networks: Q_1 to Q_K, TD-Surrogate_1 to TD-Surrogate_K-1
         self.networks = DQNNet(features, architecture_type, n_actions, n_bellman_iterations * 2 - 1)
 
-        self.root_params = freeze(
-            self.root_network.init(key_root_params, jnp.zeros(observation_dim, dtype=jnp.float32))
-        )
+        self.root_params = self.root_network.init(key_root_params, jnp.zeros(observation_dim, dtype=jnp.float32))
         self.params = freeze(self.networks.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32)))
 
-        self.optimizer = self.optimizer = optax.adamw(
+        self.optimizer = optax.adamw(
             learning_rate,
             eps=adam_eps,
             weight_decay=weight_decay,
             mask=jax.tree_util.tree_map_with_path(
-                lambda path, leaf: (True if "Dense_final" in path[1].key else False),
+                lambda path, leaf: (jnp.ones_like(leaf) if "Dense_final" in path[1].key else jnp.zeros_like(leaf)),
                 self.params,
             ),
         )
@@ -195,9 +194,11 @@ class GiDQNShared:
         q_values, z_values = predictions[: self.n_bellman_iterations], predictions[self.n_bellman_iterations :]
         z_values = jnp.concatenate([jnp.array([0]), z_values])  # K, Add any constant Value to z_values to match shapes
 
-        q_0_next = self.root_network.apply(root_params, sample.next_state)  # Shape (1,)
-        q_values_next = self.networks.apply(params, sample.next_state)[: self.n_bellman_iterations - 1]  # K - 1
-        all_q_values_next = jnp.concatenate([q_0_next[None, :], q_values_next], axis=0)  # K
+        next_q_root = self.root_network.apply(root_params, sample.next_state)  # Shape (1,)
+        remaining_next_q_values = self.networks.apply(params, sample.next_state)[
+            : self.n_bellman_iterations - 1
+        ]  # K - 1
+        all_q_values_next = jnp.concatenate([next_q_root[None, :], remaining_next_q_values], axis=0)  # K
 
         targets = self.compute_target(all_q_values_next, sample)  # K
         td_errors = targets - q_values  # K
@@ -219,7 +220,7 @@ class GiDQNShared:
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray, key: jax.Array):
         # computes the best action for a single state
-        idx_params = jax.random.randint(key, (), 1, self.n_bellman_iterations)
+        idx_params = jax.random.randint(key, (), 0, self.n_bellman_iterations)
         return jnp.argmax(self.networks.apply(params, state)[idx_params])
 
     def get_model(self):

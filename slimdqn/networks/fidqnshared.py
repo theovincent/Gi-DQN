@@ -10,25 +10,21 @@ from slimdqn.networks.architectures.dqn import DQNNet
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 
-def roll(x, offset):
-    return x.at[..., :-offset].set(x[..., offset:])
-
-
 @partial(jax.jit, static_argnames="n_actions")
 def shift_params(params, n_actions):
     # Each online network is updated to the following online network
     # \theta_k <- \theta_{k + 1}, i.e., params[k] <- params[k + 1]
-    last_layer = params["params"]["Dense_final"]
-    shifted_bias = roll(last_layer["bias"], n_actions)
-    shifted_kernel = roll(last_layer["kernel"], n_actions)
+    bias, kernel = params["params"]["Dense_final"]["bias"], params["params"]["Dense_final"]["kernel"]
+    shifted_bias = bias.at[:-n_actions].set(bias[n_actions:])
+    shifted_kernel = kernel.at[..., :-n_actions].set(kernel[..., n_actions:])
 
     shifted_head_params = params.copy(
         add_or_replace={
             "params": params["params"].copy(
                 add_or_replace={
                     "Dense_final": {
-                        "kernel": last_layer["kernel"][..., :n_actions],
-                        "bias": last_layer["bias"][:n_actions],
+                        "kernel": kernel[..., :n_actions],
+                        "bias": bias[:n_actions],
                     }
                 }
             )
@@ -70,7 +66,7 @@ class FiDQNShared:
 
         # initialize K+1 networks
         self.root_params = self.root_network.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32))
-        self.params = freeze(self.networks.init(key, jnp.zeros(observation_dim, dtype=jnp.float32)))
+        self.params = self.networks.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
         self.optimizer_state = self.optimizer.init(self.params)
@@ -98,6 +94,7 @@ class FiDQNShared:
         # update target network parameters every target_update_frequency steps. This starts the next Bellman iteration
         if step % self.target_update_frequency == 0:
             self.root_params, self.params = shift_params(self.params, self.n_actions)
+            print(self.root_params)
 
             logs = {
                 "loss": np.mean(self.cumulative_losses) / (self.target_update_frequency / self.update_to_data),
@@ -130,9 +127,9 @@ class FiDQNShared:
         # computes the loss for a single sample
         q_values = self.networks.apply(params, sample.state)[..., sample.action]
         next_q_root = self.root_network.apply(root_params, sample.next_state)
-        next_q_values = self.networks.apply(params, sample.next_state)[:-1]
-        next_q_values = jnp.concatenate([next_q_root[None, :], next_q_values], axis=0)
-        targets = self.compute_target(next_q_values, sample)
+        remaining_next_q_values = self.networks.apply(params, sample.next_state)[:-1]
+        all_next_q_values = jnp.concatenate([next_q_root[None, :], remaining_next_q_values], axis=0)
+        targets = self.compute_target(all_next_q_values, sample)
         td_errors = jax.lax.stop_gradient(targets - q_values)
         td_loss = targets * td_errors - q_values * td_errors
 
@@ -145,8 +142,8 @@ class FiDQNShared:
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray, key: jax.Array):
         # computes the best action for a single state
-        idx_params = jax.random.randint(key, (), 1, self.n_bellman_iterations + 1)
+        idx_params = jax.random.randint(key, (), 0, self.n_bellman_iterations)
         return jnp.argmax(self.networks.apply(params, state)[idx_params])
 
     def get_model(self):
-        return {"params": self.params}
+        return {"params": self.params, "root_params": self.root_params}

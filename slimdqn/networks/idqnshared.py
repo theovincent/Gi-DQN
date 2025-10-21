@@ -33,17 +33,14 @@ def copy_online_params_to_targets(params_online, n_actions):
     return first_params, remaining_params
 
 
-@partial(jax.jit, static_argnames="offset")
-def roll(x, offset):
-    return x.at[..., :-offset].set(x[..., offset:])
-
-
 @partial(jax.jit, static_argnames="n_actions")
 def shift_params(params, n_actions):
     # Each online network is updated to the following online network
     # \theta_k <- \theta_{k + 1}, i.e., params[k] <- params[k + 1]
-    shifted_bias = roll(params["params"]["Dense_final"]["bias"], n_actions)
-    shifted_kernel = roll(params["params"]["Dense_final"]["kernel"], n_actions)
+    bias, kernel = params["params"]["Dense_final"]["bias"], params["params"]["Dense_final"]["kernel"]
+
+    shifted_bias = bias.at[:-n_actions].set(bias[n_actions:])
+    shifted_kernel = kernel.at[..., :-n_actions].set(kernel[..., n_actions:])
     shifted_params = params.copy(
         add_or_replace={
             "params": params["params"].copy(
@@ -59,8 +56,10 @@ def shift_params(params, n_actions):
 def sync_target_params(params, n_actions):
     # Each target network is synchronized to the online network it represents
     # \bar{\theta}_k <- \theta_k, i.e., target_params[k] <- params[k-1]
-    last_layer = params["params"]["Dense_final"]
-    kernel, bias = last_layer["kernel"][..., :-n_actions], last_layer["bias"][:-n_actions]
+    kernel, bias = (
+        params["params"]["Dense_final"]["kernel"][..., :-n_actions],
+        params["params"]["Dense_final"]["bias"][:-n_actions],
+    )
 
     return params.copy(
         add_or_replace={
