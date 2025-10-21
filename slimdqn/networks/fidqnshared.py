@@ -4,7 +4,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
-from flax.core import FrozenDict, freeze
+from flax.core import FrozenDict
 
 from slimdqn.networks.architectures.dqn import DQNNet
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
@@ -12,33 +12,15 @@ from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 @partial(jax.jit, static_argnames="n_actions")
 def shift_params(params, n_actions):
-    # Each online network is updated to the following online network
-    # \theta_k <- \theta_{k + 1}, i.e., params[k] <- params[k + 1]
-    bias, kernel = params["params"]["Dense_final"]["bias"], params["params"]["Dense_final"]["kernel"]
-    shifted_bias = bias.at[:-n_actions].set(bias[n_actions:])
-    shifted_kernel = kernel.at[..., :-n_actions].set(kernel[..., n_actions:])
-
-    shifted_head_params = params.copy(
-        add_or_replace={
-            "params": params["params"].copy(
-                add_or_replace={
-                    "Dense_final": {
-                        "kernel": kernel[..., :n_actions],
-                        "bias": bias[:n_actions],
-                    }
-                }
-            )
-        }
+    kernel = params["params"]["Dense_final"]["kernel"]
+    bias = params["params"]["Dense_final"]["bias"]
+    root_params = optax.tree_utils.tree_set(
+        params, Dense_final={"kernel": kernel[:, :n_actions], "bias": bias[:n_actions]}
     )
-    shifted_params = params.copy(
-        add_or_replace={
-            "params": params["params"].copy(
-                add_or_replace={"Dense_final": {"kernel": shifted_kernel, "bias": shifted_bias}}
-            )
-        }
-    )
+    params["params"]["Dense_final"]["kernel"] = kernel.at[:, :-n_actions].set(kernel[:, n_actions:])
+    params["params"]["Dense_final"]["bias"] = bias.at[:-n_actions].set(bias[n_actions:])
 
-    return shifted_head_params, shifted_params
+    return root_params, params
 
 
 class FiDQNShared:
@@ -64,7 +46,7 @@ class FiDQNShared:
         self.root_network = DQNNet(features, architecture_type, n_actions)
         self.networks = DQNNet(features, architecture_type, n_actions, self.n_bellman_iterations)
 
-        # initialize K+1 networks
+        # initialize 1 root network and 1 network with K heads
         self.root_params = self.root_network.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32))
         self.params = self.networks.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
 
@@ -94,13 +76,12 @@ class FiDQNShared:
         # update target network parameters every target_update_frequency steps. This starts the next Bellman iteration
         if step % self.target_update_frequency == 0:
             self.root_params, self.params = shift_params(self.params, self.n_actions)
-            print(self.root_params)
 
             logs = {
                 "loss": np.mean(self.cumulative_losses) / (self.target_update_frequency / self.update_to_data),
                 "variance": self.cumulative_variance / (self.target_update_frequency / self.update_to_data),
             }
-            for idx_network in range(0, min(5, self.n_bellman_iterations + 1)):
+            for idx_network in range(0, min(5, self.n_bellman_iterations)):
                 logs[f"networks/{idx_network}_loss"] = self.cumulative_losses[idx_network] / (
                     self.target_update_frequency / self.update_to_data
                 )
@@ -125,7 +106,7 @@ class FiDQNShared:
 
     def loss(self, params: FrozenDict, root_params: FrozenDict, sample: ReplayElement):
         # computes the loss for a single sample
-        q_values = self.networks.apply(params, sample.state)[..., sample.action]
+        q_values = self.networks.apply(params, sample.state)[:, sample.action]
         next_q_root = self.root_network.apply(root_params, sample.next_state)
         remaining_next_q_values = self.networks.apply(params, sample.next_state)[:-1]
         all_next_q_values = jnp.concatenate([next_q_root[None, :], remaining_next_q_values], axis=0)
