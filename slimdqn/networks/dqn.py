@@ -54,8 +54,8 @@ class DQN:
             self.target_params = self.params.copy()
 
             logs = {
-                "loss": self.cumulative_loss / (self.target_update_frequency / self.update_to_data),
-                "variance": self.cumulative_variance / (self.target_update_frequency / self.update_to_data),
+                "loss": self.cumulative_loss / (self.target_update_frequency * self.update_to_data),
+                "variance": self.cumulative_variance / (self.target_update_frequency * self.update_to_data),
             }
             self.cumulative_loss = 0
             self.cumulative_variance = 0

@@ -83,12 +83,12 @@ class iDQN:
             self.params = shift_params(self.params)
 
             logs = {
-                "loss": np.mean(self.cumulative_losses) / (self.target_update_frequency / self.update_to_data),
-                "variance": np.mean(self.cumulative_variance) / (self.target_update_frequency / self.update_to_data),
+                "loss": np.mean(self.cumulative_losses) / (self.target_update_frequency * self.update_to_data),
+                "variance": np.mean(self.cumulative_variance) / (self.target_update_frequency * self.update_to_data),
             }
             for idx_network in range(0, min(5, self.n_bellman_iterations)):
                 logs[f"networks/{idx_network}_loss"] = self.cumulative_losses[idx_network] / (
-                    self.target_update_frequency / self.update_to_data
+                    self.target_update_frequency * self.update_to_data
                 )
 
             self.cumulative_losses = np.zeros(self.n_bellman_iterations)

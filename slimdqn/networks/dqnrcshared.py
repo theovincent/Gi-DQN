@@ -40,11 +40,9 @@ class DQNRCShared:
             eps=adam_eps,
             weight_decay=weight_decay,
             mask=jax.tree_util.tree_map_with_path(
-                lambda path, leaf: (True if "Dense_final_h" in path[1].key else False),
-                self.params,
+                lambda path, leaf: (True if "Dense_final_h" in path[1].key else False), self.params
             ),
         )
-
         self.optimizer_state = self.optimizer.init(self.params)
 
         self.mu = mu
@@ -74,9 +72,9 @@ class DQNRCShared:
         if step % self.target_update_frequency == 0:
 
             logs = {
-                "loss": np.mean(self.cumulative_q_losses) / (self.target_update_frequency / self.update_to_data),
-                "variance": np.mean(self.cumulative_variance) / (self.target_update_frequency / self.update_to_data),
-                "h_loss": np.mean(self.cumulative_h_losses) / (self.target_update_frequency / self.update_to_data),
+                "loss": np.mean(self.cumulative_q_losses) / (self.target_update_frequency * self.update_to_data),
+                "variance": np.mean(self.cumulative_variance) / (self.target_update_frequency * self.update_to_data),
+                "h_loss": np.mean(self.cumulative_h_losses) / (self.target_update_frequency * self.update_to_data),
             }
 
             self.cumulative_q_losses = 0
@@ -105,7 +103,6 @@ class DQNRCShared:
         q_output, h_output = self.network.apply(params, sample.state)
         q_value, h_value = q_output[0, sample.action], h_output[0, sample.action]
         next_q_value = self.network.apply(params, sample.next_state)[0][0]
-        print(next_q_value.shape, next_q_value)
 
         target = self.compute_target(next_q_value, sample)
         td_error = target - q_value

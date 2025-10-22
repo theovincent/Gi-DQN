@@ -49,7 +49,7 @@ class GiDQNShared:
     ):
         key_params, key_root_params = jax.random.split(key, 2)
 
-        self.n_bellman_iterations = n_bellman_iterations  # K
+        self.n_bellman_iterations = n_bellman_iterations
         self.n_actions = n_actions
         # One Root Network Q_0
         self.root_network = DQNNet(features, architecture_type, n_actions)
@@ -106,17 +106,17 @@ class GiDQNShared:
             self.root_params, self.params = shift_params(self.params, self.n_actions)
 
             logs = {
-                "loss": np.mean(self.cumulative_q_losses) / (self.target_update_frequency / self.update_to_data),
-                "variance": np.mean(self.cumulative_variance) / (self.target_update_frequency / self.update_to_data),
-                "h_loss": np.mean(self.cumulative_h_losses) / (self.target_update_frequency / self.update_to_data),
+                "loss": np.mean(self.cumulative_q_losses) / (self.target_update_frequency * self.update_to_data),
+                "variance": np.mean(self.cumulative_variance) / (self.target_update_frequency * self.update_to_data),
+                "h_loss": np.mean(self.cumulative_h_losses) / (self.target_update_frequency * self.update_to_data),
             }
             for idx_network in range(0, min(5, self.n_bellman_iterations)):
                 logs[f"networks/{idx_network}_loss"] = self.cumulative_q_losses[idx_network] / (
-                    self.target_update_frequency / self.update_to_data
+                    self.target_update_frequency * self.update_to_data
                 )
             for idx_network in range(min(5, self.n_bellman_iterations - 1)):
                 logs[f"h_networks/{idx_network}_loss"] = self.cumulative_h_losses[idx_network] / (
-                    self.target_update_frequency / self.update_to_data
+                    self.target_update_frequency * self.update_to_data
                 )
 
             self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)
@@ -162,19 +162,17 @@ class GiDQNShared:
         # computes the loss for a single sample
         q_outputs, h_outputs = self.networks.apply(params, sample.state)
         q_values, h_values = q_outputs[:, sample.action], h_outputs[:, sample.action]
+        # Add a constant value to h_values to match shapes
+        all_h_values = jnp.concatenate([jnp.array([0]), h_values])
 
-        all_h_values = jnp.concatenate(
-            [jnp.array([0]), h_values]
-        )  # K, Add any constant Value to h_values to match shapes
+        next_q_root = self.root_network.apply(root_params, sample.next_state)
+        remaining_next_q_values = self.networks.apply(params, sample.next_state)[0][:-1]
+        all_q_values_next = jnp.concatenate([next_q_root[None, :], remaining_next_q_values], axis=0)
 
-        next_q_root = self.root_network.apply(root_params, sample.next_state)  # Shape (1,)
-        remaining_next_q_values = self.networks.apply(params, sample.next_state)[0][:-1]  # K - 1
-        all_q_values_next = jnp.concatenate([next_q_root[None, :], remaining_next_q_values], axis=0)  # K
-
-        targets = self.compute_target(all_q_values_next, sample)  # K
-        td_errors = targets - q_values  # K
-        h_loss = all_h_values * jax.lax.stop_gradient(all_h_values - td_errors)  # K
-        td_loss = targets * jax.lax.stop_gradient(all_h_values) - q_values * jax.lax.stop_gradient(td_errors)  # K
+        targets = self.compute_target(all_q_values_next, sample)
+        td_errors = targets - q_values
+        h_loss = all_h_values * jax.lax.stop_gradient(all_h_values - td_errors)
+        td_loss = targets * jax.lax.stop_gradient(all_h_values) - q_values * jax.lax.stop_gradient(td_errors)
 
         return (
             td_loss + self.mu * h_loss,

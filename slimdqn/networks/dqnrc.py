@@ -70,9 +70,9 @@ class DQNRC:
         if step % self.target_update_frequency == 0:
 
             logs = {
-                "loss": np.mean(self.cumulative_q_losses) / (self.target_update_frequency / self.update_to_data),
-                "variance": np.mean(self.cumulative_variance) / (self.target_update_frequency / self.update_to_data),
-                "z_loss": np.mean(self.cumulative_z_losses) / (self.target_update_frequency / self.update_to_data),
+                "loss": np.mean(self.cumulative_q_losses) / (self.target_update_frequency * self.update_to_data),
+                "variance": np.mean(self.cumulative_variance) / (self.target_update_frequency * self.update_to_data),
+                "z_loss": np.mean(self.cumulative_z_losses) / (self.target_update_frequency * self.update_to_data),
             }
 
             self.cumulative_q_losses = 0
