@@ -65,7 +65,7 @@ class GiDQN:
 
     def update_online_params(self, step: int, replay_buffer: ReplayBuffer):
         # Update the network parameters every `update_to_data` steps
-        if step % self.update_to_data == 0:
+        for _ in range(int(self.update_to_data)):
             batch_samples = replay_buffer.sample()
 
             (self.params, self.zparams, self.optimizer_state, self.z_optimizer_state, q_losses, z_losses, variance) = (
@@ -80,7 +80,7 @@ class GiDQN:
 
     def update_target_params(self, step: int):
         # shift the network parameters every `target_update_frequency` steps. This starts the next Bellman iteration
-        for _ in range(int(self.update_to_data)):
+        if step % self.target_update_frequency == 0:
             self.params = shift_params(self.params)
             self.zparams = shift_params(self.zparams)
 
