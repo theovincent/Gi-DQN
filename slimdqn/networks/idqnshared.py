@@ -10,7 +10,7 @@ from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 
 @partial(jax.jit, static_argnames="n_actions")
-def update_target_params(params, n_actions):
+def set_target_params(params, n_actions):
     first_params = optax.tree_utils.tree_set(
         params,
         Dense_final={
@@ -81,7 +81,7 @@ class iDQNShared:
         # initialize 1 network with K heads
         self.params = self.online_networks.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32))
         # initialize the target networks
-        self.first_target_params, self.remaining_target_params = update_target_params(self.params, n_actions)
+        self.first_target_params, self.remaining_target_params = set_target_params(self.params, n_actions)
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
         self.optimizer_state = self.optimizer.init(self.params)
@@ -111,7 +111,7 @@ class iDQNShared:
         if step % self.target_update_frequency == 0:
             # Each target network is updated to its respective online network
             # \bar{\theta}_k <- \theta_{k + 1}, i.e., target_params[k] <- params[k]
-            self.first_target_params, self.remaining_target_params = update_target_params(self.params, self.n_actions)
+            self.first_target_params, self.remaining_target_params = set_target_params(self.params, self.n_actions)
             # Window shift
             self.params = shift_params(self.params, self.n_actions)
 
