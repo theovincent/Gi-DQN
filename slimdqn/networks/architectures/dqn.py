@@ -2,6 +2,8 @@ from typing import Sequence
 
 import flax.linen as nn
 import jax.numpy as jnp
+import time
+import numpy as np
 
 
 class Stack(nn.Module):
@@ -34,6 +36,7 @@ class DQNNet(nn.Module):
     architecture_type: str
     n_actions: int
     n_heads: int = None
+    n_h_heads: int = 0
 
     @nn.compact
     def __call__(self, x):
@@ -62,13 +65,17 @@ class DQNNet(nn.Module):
         elif self.architecture_type == "fc":
             initializer = nn.initializers.lecun_normal()
             idx_feature_start = 0
-
         x = jnp.squeeze(x)
 
         for idx_layer in range(idx_feature_start, len(self.features)):
             x = nn.relu((nn.Dense(self.features[idx_layer], kernel_init=initializer)(x)))
 
-        if self.n_heads is None:
+        if self.n_h_heads > 0:
+            q_vals = nn.Dense(self.n_heads * self.n_actions, name="Dense_final", kernel_init=initializer)(x)
+            h_vals = nn.Dense(self.n_h_heads * self.n_actions, name="Dense_final_h", kernel_init=initializer)(x)
+
+            return q_vals.reshape((self.n_heads, self.n_actions)), h_vals.reshape((self.n_h_heads, self.n_actions))
+        elif self.n_heads == None:
             return nn.Dense(self.n_actions, name="Dense_final", kernel_init=initializer)(x)
         else:
             return nn.Dense(self.n_heads * self.n_actions, name="Dense_final", kernel_init=initializer)(x).reshape(

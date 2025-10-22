@@ -24,34 +24,36 @@ class DQNRCShared:
         update_to_data: int,
         target_update_frequency: int,
         weight_decay: float,
+        mu: float,
         adam_eps: float = 1e-8,
     ):
         key, key_params = jax.random.split(key)
         self.n_actions = n_actions
-        self.network = DQNNet(features, architecture_type, n_actions, n_heads=2)
+        self.network = DQNNet(features, architecture_type, n_actions, n_heads=1, n_h_heads=1)
 
         # initialize online network
         self.params = self.network.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32))
 
         # regularize the TD-error estimator network
-        mask = jax.tree_util.tree_map_with_path(
-            lambda path, leaf: (True if "Dense_final" in path[1].key else False),
-            self.params,
-        )
-
-        self.optimizer = optax.masked(
-            optax.adamw(learning_rate, eps=adam_eps, weight_decay=weight_decay),
-            mask,
+        self.optimizer = optax.adamw(
+            learning_rate,
+            eps=adam_eps,
+            weight_decay=weight_decay,
+            mask=jax.tree_util.tree_map_with_path(
+                lambda path, leaf: (True if "Dense_final_h" in path[1].key else False),
+                self.params,
+            ),
         )
 
         self.optimizer_state = self.optimizer.init(self.params)
 
+        self.mu = mu
         self.gamma = gamma
         self.update_horizon = update_horizon
         self.update_to_data = update_to_data
         self.target_update_frequency = target_update_frequency
         self.cumulative_q_losses = 0
-        self.cumulative_z_losses = 0
+        self.cumulative_h_losses = 0
         self.cumulative_variance = 0
 
     def update_online_params(self, step: int, replay_buffer: ReplayBuffer):
@@ -59,12 +61,12 @@ class DQNRCShared:
         for _ in range(int(self.update_to_data)):
             batch_samples = replay_buffer.sample()
 
-            (self.params, self.optimizer_state, q_losses, z_losses, variance) = self.learn_on_batch(
+            (self.params, self.optimizer_state, q_losses, h_losses, variance) = self.learn_on_batch(
                 self.params, self.optimizer_state, batch_samples
             )
 
             self.cumulative_q_losses += q_losses
-            self.cumulative_z_losses += z_losses
+            self.cumulative_h_losses += h_losses
             self.cumulative_variance += variance
 
     def update_target_params(self, step: int):
@@ -74,42 +76,48 @@ class DQNRCShared:
             logs = {
                 "loss": np.mean(self.cumulative_q_losses) / (self.target_update_frequency / self.update_to_data),
                 "variance": np.mean(self.cumulative_variance) / (self.target_update_frequency / self.update_to_data),
-                "z_loss": np.mean(self.cumulative_z_losses) / (self.target_update_frequency / self.update_to_data),
+                "h_loss": np.mean(self.cumulative_h_losses) / (self.target_update_frequency / self.update_to_data),
             }
 
             self.cumulative_q_losses = 0
-            self.cumulative_z_losses = 0
+            self.cumulative_h_losses = 0
             self.cumulative_variance = 0
             return True, logs
         return False, {}
 
     @partial(jax.jit, static_argnames="self")
     def learn_on_batch(self, params: FrozenDict, optimizer_state, batch_samples):
-        (grad_loss), (q_losses, z_losses, variance) = jax.grad(self.loss_on_batch, has_aux=True)(params, batch_samples)
+        (grad_loss), (q_losses, h_losses, variance) = jax.grad(self.loss_on_batch, has_aux=True)(params, batch_samples)
 
         updates, optimizer_state = self.optimizer.update(grad_loss, optimizer_state, params)
 
         params = optax.apply_updates(params, updates)
 
-        return (params, optimizer_state, q_losses, z_losses, variance)
+        return (params, optimizer_state, q_losses, h_losses, variance)
 
     def loss_on_batch(self, params: FrozenDict, samples):
         # vmap to compute the loss for all samples
-        total_losses, q_losses, z_losses, variances = jax.vmap(self.loss, in_axes=(None, 0))(params, samples)
-        return total_losses.mean(), (q_losses.mean(), z_losses.mean(), variances.mean())
+        total_losses, q_losses, h_losses, variances = jax.vmap(self.loss, in_axes=(None, 0))(params, samples)
+        return total_losses.mean(), (q_losses.mean(), h_losses.mean(), variances.mean())
 
     def loss(self, params: FrozenDict, sample: ReplayElement):
         # computes the loss for a single sample
-        output = self.network.apply(params, sample.state)[..., sample.action]
-        q_value, z_value = output[0], output[1]
-        next_q_value = self.network.apply(params, sample.next_state)[0]
+        q_output, h_output = self.network.apply(params, sample.state)
+        q_value, h_value = q_output[0, sample.action], h_output[0, sample.action]
+        next_q_value = self.network.apply(params, sample.next_state)[0][0]
+        print(next_q_value.shape, next_q_value)
 
         target = self.compute_target(next_q_value, sample)
         td_error = target - q_value
-        z_loss = z_value * jax.lax.stop_gradient(z_value - td_error)
-        td_loss = target * jax.lax.stop_gradient(z_value) - q_value * jax.lax.stop_gradient(td_error)
+        h_loss = h_value * jax.lax.stop_gradient(h_value - td_error)
+        td_loss = target * jax.lax.stop_gradient(h_value) - q_value * jax.lax.stop_gradient(td_error)
 
-        return (td_loss + z_loss, jnp.square(td_error), jnp.square(z_value - td_error), target**2 - target * q_value)
+        return (
+            td_loss + self.mu * h_loss,
+            jnp.square(td_error),
+            jnp.square(h_value - td_error),
+            target**2 - target * q_value,
+        )
 
     def compute_target(self, next_q, sample: ReplayElement):
         # computes the target value for single sample

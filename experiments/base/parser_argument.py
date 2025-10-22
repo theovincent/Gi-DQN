@@ -203,6 +203,16 @@ def add_target_sync_frequency(parser: argparse.ArgumentParser):
     )
 
 
+def add_mu(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "-mu",
+        "--mu",
+        help="Factor that is multiplied by the alpha loss before adding it to the overall loss.",
+        type=float,
+        default=1,
+    )
+
+
 @output_added_arguments
 def add_gidqn_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
@@ -215,6 +225,7 @@ def add_gidqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
     add_freeze_first_head(parser)
+    add_mu(parser)
 
 
 @output_added_arguments
@@ -252,3 +263,4 @@ def add_dqnrc_arguments(parser: argparse.ArgumentParser):
 @output_added_arguments
 def add_dqnrcshared_arguments(parser: argparse.ArgumentParser):
     add_weight_decay(parser)
+    add_mu(parser)

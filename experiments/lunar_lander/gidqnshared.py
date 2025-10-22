@@ -41,6 +41,7 @@ def run(argvs=sys.argv[1:]):
         unfreeze_first_head=p["unfreeze_first_head"],
         target_update_frequency=p["target_update_frequency"],
         weight_decay=p["weight_decay"],
+        mu=p["mu"],
     )
     train(train_key, p, agent, env, rb)
 
