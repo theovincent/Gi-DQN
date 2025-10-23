@@ -79,8 +79,8 @@ class GiDQNShared:
         self.cumulative_variance = 0
 
     def update_online_params(self, step: int, replay_buffer: ReplayBuffer):
-        # Update the network parameters every `update_to_data` steps
-        if step % self.update_to_data == 0:
+        # Update the network parameters 'update_to_data' times every step
+        for _ in range(int(self.update_to_data)):
             batch_samples = replay_buffer.sample()
 
             (
