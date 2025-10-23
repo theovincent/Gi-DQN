@@ -27,18 +27,18 @@ do
   for features in "${FEATURES[@]}"
   do
     SHARED_NAME="sa25_utd${utd}_f${features}_wd${WEIGHT_DECAY}_tuf${TARGET_UPDATE_FREQUENCIES}_lr${LEARNING_RATES}_nbi${N_BELLMAN_ITERATIONS}"
-    SHARED_ARGS="$SHARED_ARGS --first_seed 1 --last_seed 10 --n_parallel_seeds 1 --features $features $features \
+    EXPERIMENT_ARGS="$SHARED_ARGS --first_seed 1 --last_seed 10 --n_parallel_seeds 1 --features $features $features \
       --learning_rate $LEARNING_RATES --target_update_frequency $TARGET_UPDATE_FREQUENCIES --update_to_data $utd"
 
-    launch_job/mountain_car/${PLATFORM}_dqn.sh --experiment_name $SHARED_NAME $SHARED_ARGS
+    launch_job/mountain_car/${PLATFORM}_dqn.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS
     sleep 2
-    launch_job/mountain_car/${PLATFORM}_dqnrcshared.sh --experiment_name $SHARED_NAME $SHARED_ARGS --weight_decay $WEIGHT_DECAY -mu $MU
+    launch_job/mountain_car/${PLATFORM}_dqnrcshared.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --weight_decay $WEIGHT_DECAY -mu $MU
     sleep 2
-    launch_job/mountain_car/${PLATFORM}_idqnshared.sh --experiment_name $SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --target_sync_frequency $TARGET_SYNC_FREQ
+    launch_job/mountain_car/${PLATFORM}_idqnshared.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --target_sync_frequency $TARGET_SYNC_FREQ
     sleep 2
-    launch_job/mountain_car/${PLATFORM}_fidqnshared.sh --experiment_name $SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS
+    launch_job/mountain_car/${PLATFORM}_fidqnshared.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS
     sleep 2
-    launch_job/mountain_car/${PLATFORM}_gidqnshared.sh --experiment_name $SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY --mu $MU
+    launch_job/mountain_car/${PLATFORM}_gidqnshared.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY --mu $MU
     sleep 5m
   done
 done

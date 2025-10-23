@@ -25,20 +25,20 @@ do
   for tuf in "${TARGET_UPDATE_FREQUENCIES[@]}"
   do
     SHARED_NAME="sa25_utd${UPDATE_TO_DATA}_f${FEATURES}_wd${WEIGHT_DECAY}_tuf${tuf}_lr${lr}"
-    SHARED_ARGS="$SHARED_ARGS --first_seed 11 --last_seed 40 --n_parallel_seeds 1  --features $FEATURES $FEATURES \
+    EXPERIMENT_ARGS="$SHARED_ARGS --first_seed 11 --last_seed 40 --n_parallel_seeds 1  --features $FEATURES $FEATURES \
       --learning_rate $lr --target_update_frequency $tuf"
-
-    launch_job/mountain_car/${PLATFORM}_dqn.sh --experiment_name $SHARED_NAME $SHARED_ARGS
+      
+    launch_job/mountain_car/${PLATFORM}_dqn.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS
     sleep 10
-    launch_job/mountain_car/${PLATFORM}_dqnrc.sh --experiment_name $SHARED_NAME $SHARED_ARGS --weight_decay $WEIGHT_DECAY
+    launch_job/mountain_car/${PLATFORM}_dqnrc.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --weight_decay $WEIGHT_DECAY
     sleep 10
-    launch_job/mountain_car/${PLATFORM}_idqn.sh --experiment_name $SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --target_sync_frequency $TARGET_SYNC_FREQ
+    launch_job/mountain_car/${PLATFORM}_idqn.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --target_sync_frequency $TARGET_SYNC_FREQ
     sleep 10
-    launch_job/mountain_car/${PLATFORM}_fidqn.sh --experiment_name $SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS
+    launch_job/mountain_car/${PLATFORM}_fidqn.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS
     sleep 10
-    launch_job/mountain_car/${PLATFORM}_gidqn.sh --experiment_name $SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY
+    launch_job/mountain_car/${PLATFORM}_gidqn.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY
     sleep 10
-    launch_job/mountain_car/${PLATFORM}_gidqn.sh --experiment_name unfrozen_$SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY --unfreeze_first_head
+    launch_job/mountain_car/${PLATFORM}_gidqn.sh --experiment_name unfrozen_$SHARED_NAME $EXPERIMENT_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY --unfreeze_first_head
     sleep 10m
   done
 done
