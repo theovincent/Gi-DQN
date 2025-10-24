@@ -32,7 +32,7 @@ do
 
     launch_job/mountain_car/${PLATFORM}_dqn.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS
     sleep 2
-    launch_job/mountain_car/${PLATFORM}_dqnrcshared.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --weight_decay $WEIGHT_DECAY -mu $MU
+    launch_job/mountain_car/${PLATFORM}_dqnrcshared.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --weight_decay $WEIGHT_DECAY --mu $MU
     sleep 2
     launch_job/mountain_car/${PLATFORM}_idqnshared.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --target_sync_frequency $TARGET_SYNC_FREQ
     sleep 2

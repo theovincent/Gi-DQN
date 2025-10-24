@@ -6,7 +6,7 @@ import jax
 from experiments.base.dqn import train
 from experiments.base.utils import prepare_logs
 from slimdqn.environments.mountain_car import MountainCar
-from slimdqn.networks.dqnrc import DQNRC
+from slimdqn.networks.dqnrcshared import DQNRCShared
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer
 from slimdqn.sample_collection.samplers import UniformSamplingDistribution
 
@@ -27,7 +27,7 @@ def run(argvs=sys.argv[1:]):
         gamma=p["gamma"],
         compress=True,
     )
-    agent = DQNRC(
+    agent = DQNRCShared(
         q_key,
         env.observation_shape[0],
         env.n_actions,
@@ -39,6 +39,7 @@ def run(argvs=sys.argv[1:]):
         update_to_data=p["update_to_data"],
         target_update_frequency=p["target_update_frequency"],
         weight_decay=p["weight_decay"],
+        mu=p["mu"],
     )
     train(train_key, p, agent, env, rb)
 

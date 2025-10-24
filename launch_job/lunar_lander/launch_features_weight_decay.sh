@@ -43,3 +43,6 @@ do
     sleep 2
     launch_job/lunar_lander/${PLATFORM}_gidqn.sh --experiment_name unfrozen_$SHARED_NAME $SHARED_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $weight_decay --unfreeze_first_head
     sleep 5m
+
+  done
+done

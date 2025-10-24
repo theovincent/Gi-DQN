@@ -6,7 +6,7 @@ import jax
 from experiments.base.dqn import train
 from experiments.base.utils import prepare_logs
 from slimdqn.environments.mountain_car import MountainCar
-from slimdqn.networks.gidqn import GiDQN
+from slimdqn.networks.gidqnshared import GiDQNShared
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer
 from slimdqn.sample_collection.samplers import UniformSamplingDistribution
 
@@ -27,7 +27,7 @@ def run(argvs=sys.argv[1:]):
         gamma=p["gamma"],
         compress=True,
     )
-    agent = GiDQN(
+    agent = GiDQNShared(
         q_key,
         env.observation_shape[0],
         env.n_actions,
@@ -41,6 +41,7 @@ def run(argvs=sys.argv[1:]):
         unfreeze_first_head=p["unfreeze_first_head"],
         target_update_frequency=p["target_update_frequency"],
         weight_decay=p["weight_decay"],
+        mu=p["mu"],
     )
     train(train_key, p, agent, env, rb)
 
