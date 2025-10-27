@@ -66,7 +66,7 @@ class GiDQN:
     def update_online_params(self, step: int, replay_buffer: ReplayBuffer):
         # Update the network parameters every `update_to_data` steps
         for _ in range(int(self.update_to_data)):
-            batch_samples = replay_buffer.sample()
+            batch_samples, _ = replay_buffer.sample()
 
             (self.params, self.zparams, self.optimizer_state, self.z_optimizer_state, q_losses, z_losses, variance) = (
                 self.learn_on_batch(

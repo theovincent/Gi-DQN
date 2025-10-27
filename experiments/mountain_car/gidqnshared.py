@@ -8,7 +8,7 @@ from experiments.base.utils import prepare_logs
 from slimdqn.environments.mountain_car import MountainCar
 from slimdqn.networks.gidqnshared import GiDQNShared
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer
-from slimdqn.sample_collection.samplers import UniformSamplingDistribution
+from slimdqn.sample_collection.samplers import Uniform
 
 
 def run(argvs=sys.argv[1:]):
@@ -19,13 +19,13 @@ def run(argvs=sys.argv[1:]):
 
     env = MountainCar(env_key)
     rb = ReplayBuffer(
-        sampling_distribution=UniformSamplingDistribution(p["seed"]),
+        sampling_distribution=Uniform(p["seed"]),
         batch_size=p["batch_size"],
         max_capacity=p["replay_buffer_capacity"],
         stack_size=1,
         update_horizon=p["update_horizon"],
         gamma=p["gamma"],
-        compress=True,
+        clipping=None,
     )
     agent = GiDQNShared(
         q_key,
