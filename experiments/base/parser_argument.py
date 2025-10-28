@@ -213,6 +213,37 @@ def add_mu(parser: argparse.ArgumentParser):
     )
 
 
+def add_distributional_arguments(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "-nb",
+        "--n_bins",
+        help="Number of bins to use for the categorical distribution.",
+        type=int,
+        default=50,
+    )
+    parser.add_argument(
+        "-minn",
+        "--min_value",
+        help="Value of the lowest learnable value of the target.",
+        type=float,
+        default=-100,
+    )
+    parser.add_argument(
+        "-maxn",
+        "--max_value",
+        help="Value of the highest learnable value of the target.",
+        type=float,
+        default=100,
+    )
+    parser.add_argument(
+        "-sigma",
+        "--sigma",
+        help="Standard deviation of each target sample. If \sigma / \eta = 0.75, then \sigma = 0.75 * (max_value - min_value) / n_bins",
+        type=float,
+        default=3,
+    )
+
+
 @output_added_arguments
 def add_gidqn_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
@@ -229,6 +260,15 @@ def add_gidqnshared_arguments(parser: argparse.ArgumentParser):
 
 
 @output_added_arguments
+def add_hlgidqnshared_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_weight_decay(parser)
+    add_freeze_first_head(parser)
+    add_mu(parser)
+    add_distributional_arguments(parser)
+
+
+@output_added_arguments
 def add_fidqn_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
 
@@ -236,6 +276,12 @@ def add_fidqn_arguments(parser: argparse.ArgumentParser):
 @output_added_arguments
 def add_fidqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
+
+
+@output_added_arguments
+def add_hlfidqnshared_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_distributional_arguments(parser)
 
 
 @output_added_arguments
@@ -251,8 +297,20 @@ def add_idqnshared_arguments(parser: argparse.ArgumentParser):
 
 
 @output_added_arguments
+def add_hlidqnshared_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_target_sync_frequency(parser)
+    add_distributional_arguments(parser)
+
+
+@output_added_arguments
 def add_dqn_arguments(parser: argparse.ArgumentParser):
     pass
+
+
+@output_added_arguments
+def add_hldqn_arguments(parser: argparse.ArgumentParser):
+    add_distributional_arguments(parser)
 
 
 @output_added_arguments
@@ -264,3 +322,10 @@ def add_dqnrc_arguments(parser: argparse.ArgumentParser):
 def add_dqnrcshared_arguments(parser: argparse.ArgumentParser):
     add_weight_decay(parser)
     add_mu(parser)
+
+
+@output_added_arguments
+def add_hldqnrcshared_arguments(parser: argparse.ArgumentParser):
+    add_weight_decay(parser)
+    add_mu(parser)
+    add_distributional_arguments(parser)

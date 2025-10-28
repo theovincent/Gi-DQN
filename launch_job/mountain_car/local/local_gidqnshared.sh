@@ -9,7 +9,7 @@ if ! tmux has-session -t slimdqn; then
 fi
 
 tmux send-keys -t slimdqn "cd $(pwd)" ENTER
-tmux send-keys -t slimdqn "source env_cpu/bin/activate" ENTER
+tmux send-keys -t slimdqn "source env/bin/activate" ENTER
 
 echo "launch train $ALGO_NAME local"
 for (( seed=$FIRST_SEED; seed<=$LAST_SEED; seed++ ))
