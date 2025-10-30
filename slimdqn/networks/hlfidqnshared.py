@@ -107,7 +107,7 @@ class HLFiDQNShared:
     def loss_on_batch(self, params: FrozenDict, root_params: FrozenDict, samples):
         losses = jax.vmap(self.loss, in_axes=(None, None, 0))(params, root_params, samples)
 
-        return losses.sum(axis=-1).mean(), losses.sum(axis=0)
+        return losses.sum(axis=-1).mean(), losses.mean(axis=0)
 
     def loss(self, params: FrozenDict, root_params: FrozenDict, sample: ReplayElement):
         # computes the loss for a single sample
