@@ -109,7 +109,7 @@ class HLDQNRCShared:
         q_value_probs = jax.nn.softmax(q_logits[sample.action])
         q_value_log_prob = jnp.log(jnp.maximum(q_value_probs, 1e-5))
 
-        next_q_value = jax.nn.softmax(self.network.apply(params, sample.next_state)[0]) @ self.bin_centers
+        next_q_value = jax.nn.softmax(self.network.apply(params, sample.next_state)[0], axis=-1) @ self.bin_centers
         projected_target = self.project_target(self.compute_target(next_q_value, sample))
 
         estimated_log = jax.lax.stop_gradient(h_logits_a) - jax.scipy.special.logsumexp(
@@ -136,7 +136,7 @@ class HLDQNRCShared:
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray, key: jax.Array = None):
         # computes the best action for a single state
-        return jnp.argmax(jax.nn.softmax(self.network.apply(params, state)[0]) @ self.bin_centers)
+        return jnp.argmax(jax.nn.softmax(self.network.apply(params, state)[0], axis=-1) @ self.bin_centers)
 
     def get_model(self):
         return {"params": self.params}
