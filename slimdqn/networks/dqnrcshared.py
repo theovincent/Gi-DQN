@@ -101,8 +101,8 @@ class DQNRCShared:
     def loss(self, params: FrozenDict, sample: ReplayElement):
         # computes the loss for a single sample
         q_output, h_output = self.network.apply(params, sample.state)
-        q_value, h_value = q_output[sample.action], h_output[sample.action]
-        next_q_value = self.network.apply(params, sample.next_state)[0]
+        q_value, h_value = q_output[0, sample.action], h_output[0, sample.action]
+        next_q_value = self.network.apply(params, sample.next_state)[0][0]
 
         target = self.compute_target(next_q_value, sample)
         td_error = target - q_value
@@ -123,7 +123,7 @@ class DQNRCShared:
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray, key: jax.Array = None):
         # computes the best action for a single state
-        return jnp.argmax(self.network.apply(params, state)[0])
+        return jnp.argmax(self.network.apply(params, state)[0][0])
 
     def get_model(self):
         return {"params": self.params}

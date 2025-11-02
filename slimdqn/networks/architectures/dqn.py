@@ -35,9 +35,9 @@ class DQNNet(nn.Module):
     features: Sequence[int]
     architecture_type: str
     n_actions: int
-    n_heads: int = 1
+    n_heads: int = None
     n_h_heads: int = None
-    n_bins: int = 1
+    n_bins: int = None
 
     @nn.compact
     def __call__(self, x):
@@ -71,20 +71,14 @@ class DQNNet(nn.Module):
         for idx_layer in range(idx_feature_start, len(self.features)):
             x = nn.relu((nn.Dense(self.features[idx_layer], kernel_init=initializer)(x)))
 
-        q_vals = (
-            nn.Dense(self.n_actions * self.n_bins * self.n_heads, name="Dense_final", kernel_init=initializer)(x)
-            .reshape(self.n_heads, self.n_actions, self.n_bins)
-            .squeeze()
-        )
-
-        if self.n_h_heads is not None:
-            h_vals = (
-                nn.Dense(self.n_actions * self.n_bins * self.n_h_heads, name="Dense_final_h", kernel_init=initializer)(
-                    x
-                )
-                .reshape(self.n_h_heads, self.n_actions, self.n_bins)
-                .squeeze()
+        if self.n_heads is None and self.n_h_heads is None:
+            return nn.Dense(self.n_actions, name="Dense_final", kernel_init=initializer)(x)
+        elif self.n_h_heads is None:
+            return nn.Dense(self.n_heads * self.n_actions, name="Dense_final", kernel_init=initializer)(x).reshape(
+                (self.n_heads, self.n_actions)
             )
-            return q_vals, h_vals
+        else:
+            q_vals = nn.Dense(self.n_heads * self.n_actions, name="Dense_final", kernel_init=initializer)(x)
+            h_vals = nn.Dense(self.n_h_heads * self.n_actions, name="Dense_final_h", kernel_init=initializer)(x)
 
-        return q_vals
+            return q_vals.reshape((self.n_heads, self.n_actions)), h_vals.reshape((self.n_h_heads, self.n_actions))
