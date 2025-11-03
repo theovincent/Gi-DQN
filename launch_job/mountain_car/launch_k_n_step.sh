@@ -12,8 +12,8 @@ FEATURES=100
 MU=1
 
 # np.logspace(np.log10(start), np.log10(stop), 5)
-UPDATE_HORIZON=(9) #(1 2 3 4 6 9 14 21 32 50)
-N_BELLMAN_ITERATIONS=(2) #(2 3 4 6 8 12 17 24 35 50)
+UPDATE_HORIZON=(6) #(1 2 3 4 6 9 14 21 32 50)
+N_BELLMAN_ITERATIONS=(2 3 4 6 8 12 17 24 35 50)
 
 
 PLATFORM="stud/cluster"  # stud/cluster local/local
@@ -35,12 +35,12 @@ do
 
   for n_bellman_iterations in "${N_BELLMAN_ITERATIONS[@]}"
   do
-    SHARED_NAME="sa25_nstep${update_horizon}_utd${UPDATE_TO_DATA}_f${FEATURES}_wd${WEIGHT_DECAY}_tuf${TARGET_UPDATE_FREQUENCIES}_lr${LEARNING_RATES}_nbi${n_bellman_iterations}"
+    SHARED_NAME="sa25_nstep${update_horizon}_utd${UPDATE_TO_DATA}_f${FEATURES}_wd${WEIGHT_DECAY}_tuf${TARGET_UPDATE_FREQUENCIES}_lr${LEARNING_RATES}_nbi${n_bellman_iterations}_sanity_check"
     launch_job/mountain_car/${PLATFORM}_idqnshared.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --n_bellman_iterations $n_bellman_iterations --target_sync_frequency $TARGET_SYNC_FREQ
     sleep 2
     #launch_job/mountain_car/${PLATFORM}_fidqnshared.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --n_bellman_iterations $n_bellman_iterations
     #sleep 2
-    #launch_job/mountain_car/${PLATFORM}_gidqnshared.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --n_bellman_iterations $n_bellman_iterations --weight_decay $WEIGHT_DECAY --mu $MU
-    #sleep 5m
+    launch_job/mountain_car/${PLATFORM}_gidqnshared.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --n_bellman_iterations $n_bellman_iterations --weight_decay $WEIGHT_DECAY --mu $MU
+    sleep 5m
   done
 done
