@@ -146,7 +146,6 @@ class HLGiDQNShared:
         total_grad_loss, (q_losses, h_losses) = jax.grad(self.loss_on_batch, has_aux=True, argnums=(0))(
             params, root_params, batch_samples
         )
-
         updates, optimizer_state = self.optimizer.update(total_grad_loss, optimizer_state, params)
         params = optax.apply_updates(params, updates)
 
@@ -182,15 +181,14 @@ class HLGiDQNShared:
         targets = self.compute_target(next_q_values, sample)
         projected_targets = self.project_target(targets)
 
-        estimated_log = jax.lax.stop_gradient(h_logits_a) - jax.scipy.special.logsumexp(
-            a=jax.lax.stop_gradient(h_logits_a), b=q_value_probs
+        estimated_log = jax.lax.stop_gradient(
+            h_logits_a - jax.scipy.special.logsumexp(a=h_logits_a, b=q_value_probs, axis=-1)[:, None]
         )
-
-        kl = jnp.sum(estimated_log * projected_targets) - jnp.sum(
-            jax.lax.stop_gradient(projected_targets) * q_value_log_probs
+        kl = jnp.sum(estimated_log * projected_targets, axis=-1) - jnp.sum(
+            jax.lax.stop_gradient(projected_targets) * q_value_log_probs, axis=-1
         )
         h_loss = optax.softmax_cross_entropy(
-            h_logits_a + jax.lax.stop_gradient(q_value_log_probs), jax.lax.stop_gradient(projected_targets)
+            h_logits_a + jax.lax.stop_gradient(q_value_log_probs), jax.lax.stop_gradient(projected_targets), axis=-1
         )
 
         return kl + self.mu * h_loss, kl, h_loss[1:]
