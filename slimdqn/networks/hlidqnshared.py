@@ -152,9 +152,7 @@ class HLiDQNShared:
         grad_loss, losses = jax.grad(self.loss_on_batch, has_aux=True)(
             params, first_target_params, remaining_target_params, batch_samples
         )
-
         updates, optimizer_state = self.optimizer.update(grad_loss, optimizer_state, params)
-
         params = optax.apply_updates(params, updates)
 
         return (params, optimizer_state, losses)
@@ -187,9 +185,7 @@ class HLiDQNShared:
         targets = self.compute_target(next_q_values, sample)
         projected_targets = self.project_target(targets)
 
-        loss = optax.softmax_cross_entropy(q_logits, projected_targets, axis=-1)
-
-        return loss
+        return optax.softmax_cross_entropy(q_logits, projected_targets, axis=-1)
 
     def compute_target(self, next_q, sample: ReplayElement):
         # computes the target value for single sample

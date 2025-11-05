@@ -170,7 +170,6 @@ class HLGiDQNShared:
         q_logits_a, h_logits_a = q_logits[:, sample.action, :], h_logits[:, sample.action, :]
         h_logits_a = jnp.concatenate([jnp.zeros((1, self.n_bins)), h_logits_a], axis=0)
         q_value_probs = jax.nn.softmax(q_logits_a, axis=-1)
-        q_value_log_probs = jnp.log(jnp.maximum(q_value_probs, 1e-5))
 
         first_target_next_q = self.root_network.apply(root_params, sample.next_state)
         remaining_next_q = self.networks.apply(params, sample.next_state)[0][:-1]
@@ -180,15 +179,11 @@ class HLGiDQNShared:
         )
         targets = self.compute_target(next_q_values, sample)
         projected_targets = self.project_target(targets)
-
-        estimated_log = jax.lax.stop_gradient(
-            h_logits_a - jax.scipy.special.logsumexp(a=h_logits_a, b=q_value_probs, axis=-1)[:, None]
+        kl = jnp.sum(jax.lax.stop_gradient(h_logits_a) * projected_targets, axis=-1) + optax.softmax_cross_entropy(
+            q_logits_a, jax.lax.stop_gradient(projected_targets), axis=-1
         )
-        kl = jnp.sum(estimated_log * projected_targets, axis=-1) - jnp.sum(
-            jax.lax.stop_gradient(projected_targets) * q_value_log_probs, axis=-1
-        )
-        h_loss = optax.softmax_cross_entropy(
-            h_logits_a + jax.lax.stop_gradient(q_value_log_probs), jax.lax.stop_gradient(projected_targets), axis=-1
+        h_loss = -jnp.sum(h_logits_a * jax.lax.stop_gradient(projected_targets), axis=-1) + jax.scipy.special.logsumexp(
+            a=h_logits_a, b=jax.lax.stop_gradient(q_value_probs), axis=-1
         )
 
         return kl + self.mu * h_loss, kl, h_loss[1:]

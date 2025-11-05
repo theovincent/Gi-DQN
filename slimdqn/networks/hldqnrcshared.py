@@ -100,26 +100,23 @@ class HLDQNRCShared:
     def loss_on_batch(self, params: FrozenDict, samples):
         # vmap to compute the loss for all samples
         total_losses, q_losses, h_losses = jax.vmap(self.loss, in_axes=(None, 0))(params, samples)
+
         return total_losses.mean(), (q_losses.mean(), h_losses.mean())
 
     def loss(self, params: FrozenDict, sample: ReplayElement):
         # computes the loss for a single sample
         q_logits, h_logits = self.network.apply(params, sample.state)
-        h_logits_a = h_logits[0, sample.action]
-        q_value_probs = jax.nn.softmax(q_logits[0, sample.action])
-        q_value_log_prob = jnp.log(jnp.maximum(q_value_probs, 1e-5))
+        h_logits_a, q_logits_a = h_logits[0, sample.action], q_logits[0, sample.action]
+        q_value_probs = jax.nn.softmax(q_logits_a)
 
         next_q_value = jax.nn.softmax(self.network.apply(params, sample.next_state)[0][0], axis=-1) @ self.bin_centers
         projected_target = self.project_target(self.compute_target(next_q_value, sample))
 
-        estimated_log = jax.lax.stop_gradient(
-            h_logits_a - jax.scipy.special.logsumexp(a=h_logits_a, b=q_value_probs, axis=-1)
+        kl = jnp.sum(jax.lax.stop_gradient(h_logits_a) * projected_target, axis=-1) + optax.softmax_cross_entropy(
+            q_logits_a, jax.lax.stop_gradient(projected_target), axis=-1
         )
-        kl = jnp.sum(estimated_log * projected_target, axis=-1) - jnp.sum(
-            jax.lax.stop_gradient(projected_target) * q_value_log_prob, axis=-1
-        )
-        h_loss = optax.softmax_cross_entropy(
-            h_logits_a + jax.lax.stop_gradient(q_value_log_prob), jax.lax.stop_gradient(projected_target), axis=-1
+        h_loss = -jnp.sum(h_logits_a * jax.lax.stop_gradient(projected_target), axis=-1) + jax.scipy.special.logsumexp(
+            a=h_logits_a, b=jax.lax.stop_gradient(q_value_probs), axis=-1
         )
 
         return kl + self.mu * h_loss, kl, h_loss
