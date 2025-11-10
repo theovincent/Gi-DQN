@@ -12,7 +12,7 @@ MU=1
 UPDATE_TO_DATA=1
 SIGMA=5
 MIN_VALUE=-150
-MAX_VALUE=50 
+MAX_VALUE=50
 N_BINS=51
 
 # np.logspace(np.log10(start), np.log10(stop), 5)
@@ -27,7 +27,7 @@ then
     SHARED_ARGS="$SHARED_ARGS --disable_wandb"
 fi
 
-for horizon in "${UPDATE_HORIZON[@]}" 
+for horizon in "${UPDATE_HORIZON[@]}"
 do
   for lr in "${LEARNING_RATES[@]}"
   do
@@ -36,14 +36,15 @@ do
       --learning_rate $lr --update_horizon $horizon --target_update_frequency $TARGET_UPDATE_FREQUENCIES --update_to_data $UPDATE_TO_DATA --sigma $SIGMA --n_bins $N_BINS --min_value $MIN_VALUE --max_value $MAX_VALUE"
 
     launch_job/mountain_car/${PLATFORM}_hldqn.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS
-    # sleep 2
-    # launch_job/mountain_car/${PLATFORM}_hldqnrcshared.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --weight_decay $WEIGHT_DECAY --mu $MU
-    # sleep 2
-    # launch_job/mountain_car/${PLATFORM}_hlidqnshared.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --target_sync_frequency $TARGET_SYNC_FREQ
-    # sleep 2
-    # launch_job/mountain_car/${PLATFORM}_hlfidqnshared.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS
-    # sleep 2
-    # launch_job/mountain_car/${PLATFORM}_hlgidqnshared.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY --mu $MU
+    sleep 2
+    launch_job/mountain_car/${PLATFORM}_hldqnrcshared.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --weight_decay $WEIGHT_DECAY --mu $MU
+    sleep 2
+    launch_job/mountain_car/${PLATFORM}_hlidqnshared.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --target_sync_frequency $TARGET_SYNC_FREQ
+    sleep 2
+    launch_job/mountain_car/${PLATFORM}_hlfidqnshared.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS
+    sleep 2
+    launch_job/mountain_car/${PLATFORM}_hlgidqnshared.sh --experiment_name $SHARED_NAME $EXPERIMENT_ARGS --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY --mu $MU
     sleep 5m
   done
 done
+
