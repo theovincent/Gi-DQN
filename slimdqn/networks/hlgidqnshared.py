@@ -181,15 +181,13 @@ class HLGiDQNShared:
         projected_targets = self.project_target(targets)
         baseline = jax.scipy.special.logsumexp(a=h_logits_a, b=jax.lax.stop_gradient(q_value_probs), axis=-1)[:, None]
         centered_h_logits = h_logits_a - baseline
-        kl = jnp.sum(
-            jax.lax.stop_gradient(h_logits_a) * projected_targets, axis=-1
-        ) + optax.softmax_cross_entropy(q_logits_a, jax.lax.stop_gradient(projected_targets), axis=-1)
-        h_loss = -jnp.sum(
-            centered_h_logits * jax.lax.stop_gradient(projected_targets), axis=-1
-        ) 
+        kl = jnp.sum(jax.lax.stop_gradient(h_logits_a) * projected_targets, axis=-1) + optax.softmax_cross_entropy(
+            q_logits_a, jax.lax.stop_gradient(projected_targets), axis=-1
+        )
+        h_loss = -jnp.sum(centered_h_logits * jax.lax.stop_gradient(projected_targets), axis=-1)
 
         return kl + self.mu * h_loss, kl, h_loss[1:]
-    
+
     def compute_target(self, q_values_next: jnp.ndarray, sample: ReplayElement):
         return sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * jnp.max(
             q_values_next, axis=-1

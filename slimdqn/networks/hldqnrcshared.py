@@ -113,12 +113,10 @@ class HLDQNRCShared:
         projected_target = self.project_target(self.compute_target(next_q_value, sample))
         baseline = jax.scipy.special.logsumexp(a=h_logits_a, b=jax.lax.stop_gradient(q_value_probs), axis=-1)
         centered_h_logits = h_logits_a - baseline
-        kl = jnp.sum(
-            jax.lax.stop_gradient(h_logits_a) * projected_target, axis=-1
-        ) +  optax.softmax_cross_entropy(q_logits_a, jax.lax.stop_gradient(projected_target), axis=-1)
-        h_loss = -jnp.sum(
-            centered_h_logits * jax.lax.stop_gradient(projected_target), axis=-1
-        ) 
+        kl = jnp.sum(jax.lax.stop_gradient(h_logits_a) * projected_target, axis=-1) + optax.softmax_cross_entropy(
+            q_logits_a, jax.lax.stop_gradient(projected_target), axis=-1
+        )
+        h_loss = -jnp.sum(centered_h_logits * jax.lax.stop_gradient(projected_target), axis=-1)
 
         return kl + self.mu * h_loss, kl, h_loss
 
