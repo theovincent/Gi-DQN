@@ -52,9 +52,10 @@ class DQNNet(nn.Module):
             x = nn.relu(
                 nn.Conv(features=self.features[1], kernel_size=(4, 4), strides=(2, 2), kernel_init=initializer)(x)
             )
-            x = nn.relu(
+            """  x = nn.relu(
                 nn.Conv(features=self.features[2], kernel_size=(3, 3), strides=(1, 1), kernel_init=initializer)(x)
-            )
+            ) """
+
             x = x.reshape((x.shape[0], -1))
         elif self.architecture_type == "impala":
             initializer = nn.initializers.xavier_uniform()
