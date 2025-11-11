@@ -43,20 +43,20 @@ class DQNNet(nn.Module):
     def __call__(self, x):
         if self.architecture_type == "cnn":
             initializer = nn.initializers.xavier_uniform()
-            idx_feature_start = 3
+            idx_feature_start = 2
             x = nn.relu(
-                nn.Conv(features=self.features[0], kernel_size=(8, 8), strides=(4, 4), kernel_init=initializer)(
+                nn.Conv(features=self.features[0], kernel_size=(4, 4), strides=(1, 1), kernel_init=initializer)(
                     jnp.array(x, ndmin=4) / 255.0
                 )
             )
             x = nn.relu(
-                nn.Conv(features=self.features[1], kernel_size=(4, 4), strides=(2, 2), kernel_init=initializer)(x)
+                nn.Conv(features=self.features[1], kernel_size=(2, 2), strides=(1, 1), kernel_init=initializer)(x)
             )
             """  x = nn.relu(
                 nn.Conv(features=self.features[2], kernel_size=(3, 3), strides=(1, 1), kernel_init=initializer)(x)
             ) """
 
-            x = x.reshape((x.shape[0], -1))
+            x = jnp.mean(x, axis=(1, 2))
         elif self.architecture_type == "impala":
             initializer = nn.initializers.xavier_uniform()
             idx_feature_start = 3
@@ -71,6 +71,9 @@ class DQNNet(nn.Module):
 
         for idx_layer in range(idx_feature_start, len(self.features)):
             x = nn.relu((nn.Dense(self.features[idx_layer], kernel_init=initializer)(x)))
+
+        # if self.architecture_type == "cnn":
+        #     x = nn.LayerNorm()(x)
 
         if self.n_bins is not None:
             if self.n_heads is None and self.n_h_heads is None:

@@ -13,7 +13,7 @@ import cv2
 class AtariEnv:
     def __init__(self, name: str, render_mode=None) -> None:
         self.name = name
-        self.state_height, self.state_width = (32, 32)
+        self.state_height, self.state_width = (42, 42)
         self.n_stacked_frames = 4
         self.n_skipped_frames = 4
 
