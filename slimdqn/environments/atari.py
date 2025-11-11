@@ -14,7 +14,7 @@ class AtariEnv:
     def __init__(self, name: str, render_mode=None) -> None:
         self.name = name
         self.state_height, self.state_width = (42, 42)
-        self.n_stacked_frames = 4
+        self.n_stacked_frames = 2
         self.n_skipped_frames = 4
 
         gym.register_envs(ale_py)  # To use ale with gym which speeds up step()

@@ -26,7 +26,7 @@ def run(argvs=sys.argv[1:]):
         update_horizon=p["update_horizon"],
         gamma=p["gamma"],
         clipping=lambda x: np.clip(x, -1, 1),
-        stack_size=4,
+        stack_size=2,
     )
     agent = HLFiDQNShared(
         q_key,
