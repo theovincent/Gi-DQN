@@ -18,6 +18,7 @@ class DQNRC:
         n_actions,
         features: list,
         architecture_type: str,
+        layer_norm: bool,
         learning_rate: float,
         gamma: float,
         update_horizon: int,
@@ -28,7 +29,7 @@ class DQNRC:
     ):
         key_params, key_z_params = jax.random.split(key, 2)
 
-        self.network = DQNNet(features, architecture_type, n_actions)
+        self.network = DQNNet(features, architecture_type, layer_norm, n_actions)
 
         # initialize online network
         self.params = self.network.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32))

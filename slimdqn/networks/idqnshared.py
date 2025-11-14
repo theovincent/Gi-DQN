@@ -63,6 +63,7 @@ class iDQNShared:
         n_bellman_iterations: int,
         features: list,
         architecture_type: str,
+        layer_norm: bool,
         learning_rate: float,
         gamma: float,
         update_horizon: int,
@@ -74,9 +75,9 @@ class iDQNShared:
         key, key_params = jax.random.split(key)
         self.n_actions = n_actions
         self.n_bellman_iterations = n_bellman_iterations
-        self.online_networks = DQNNet(features, architecture_type, n_actions, self.n_bellman_iterations)
-        self.root_network = DQNNet(features, architecture_type, n_actions)
-        self.remaining_target_networks = DQNNet(features, architecture_type, n_actions, self.n_bellman_iterations - 1)
+        self.online_networks = DQNNet(features, architecture_type, layer_norm, n_actions, self.n_bellman_iterations)
+        self.root_network = DQNNet(features, architecture_type, layer_norm, n_actions)
+        self.remaining_target_networks = DQNNet(features, architecture_type, layer_norm, n_actions, self.n_bellman_iterations - 1)
 
         # initialize 1 network with K heads
         self.params = self.online_networks.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32))

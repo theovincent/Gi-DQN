@@ -32,6 +32,7 @@ class FiDQNShared:
         n_bellman_iterations: int,
         features: list,
         architecture_type: str,
+        layer_norm: bool,
         learning_rate: float,
         gamma: float,
         update_horizon: int,
@@ -43,8 +44,8 @@ class FiDQNShared:
         self.n_actions = n_actions
         self.n_bellman_iterations = n_bellman_iterations
 
-        self.root_network = DQNNet(features, architecture_type, n_actions)
-        self.networks = DQNNet(features, architecture_type, n_actions, self.n_bellman_iterations)
+        self.root_network = DQNNet(features, architecture_type, layer_norm, n_actions)
+        self.networks = DQNNet(features, architecture_type, layer_norm, n_actions, self.n_bellman_iterations)
 
         # initialize 1 root network and 1 network with K heads
         self.root_params = self.root_network.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32))

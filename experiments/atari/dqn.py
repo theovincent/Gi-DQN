@@ -34,6 +34,7 @@ def run(argvs=sys.argv[1:]):
         env.n_actions,
         features=p["features"],
         architecture_type=p["architecture_type"],
+        layer_norm=p["layer_norm"],
         learning_rate=p["learning_rate"],
         gamma=p["gamma"],
         update_horizon=p["update_horizon"],

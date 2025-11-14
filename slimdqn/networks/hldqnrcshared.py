@@ -18,6 +18,7 @@ class HLDQNRCShared:
         n_actions,
         features: list,
         architecture_type: str,
+        layer_norm: bool,
         learning_rate: float,
         gamma: float,
         update_horizon: int,
@@ -33,7 +34,7 @@ class HLDQNRCShared:
     ):
         key, key_params = jax.random.split(key)
         self.n_actions = n_actions
-        self.network = DQNNet(features, architecture_type, n_actions, n_heads=1, n_h_heads=1, n_bins=n_bins)
+        self.network = DQNNet(features, architecture_type, layer_norm, n_actions, n_heads=1, n_h_heads=1, n_bins=n_bins)
         # initialize online network
         self.params = self.network.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32))
 

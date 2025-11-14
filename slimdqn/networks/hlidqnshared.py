@@ -63,6 +63,7 @@ class HLiDQNShared:
         n_bellman_iterations: int,
         features: list,
         architecture_type: str,
+        layer_norm: bool,
         learning_rate: float,
         gamma: float,
         update_horizon: int,
@@ -78,10 +79,10 @@ class HLiDQNShared:
         key, key_params = jax.random.split(key)
         self.n_actions = n_actions
         self.n_bellman_iterations = n_bellman_iterations
-        self.online_networks = DQNNet(features, architecture_type, n_actions, self.n_bellman_iterations, n_bins=n_bins)
-        self.root_network = DQNNet(features, architecture_type, n_actions, n_bins=n_bins)
+        self.online_networks = DQNNet(features, architecture_type, layer_norm, n_actions, self.n_bellman_iterations, n_bins=n_bins)
+        self.root_network = DQNNet(features, architecture_type, layer_norm, n_actions, n_bins=n_bins)
         self.remaining_target_networks = DQNNet(
-            features, architecture_type, n_actions, self.n_bellman_iterations - 1, n_bins=n_bins
+            features, architecture_type, layer_norm, n_actions, self.n_bellman_iterations - 1, n_bins=n_bins
         )
 
         # initialize 1 network with K heads

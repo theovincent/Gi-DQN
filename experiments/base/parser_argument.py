@@ -243,12 +243,22 @@ def add_distributional_arguments(parser: argparse.ArgumentParser):
         default=3,
     )
 
+@output_added_arguments
+def add_layer_norm(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "-ln",
+        "--layer_norm",
+        help="Whether to use layer normalization.",
+        default=False,
+        action="store_true",
+    )
 
 @output_added_arguments
 def add_gidqn_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
     add_freeze_first_head(parser)
+    add_layer_norm(parser)
 
 
 @output_added_arguments
@@ -257,6 +267,7 @@ def add_gidqnshared_arguments(parser: argparse.ArgumentParser):
     add_weight_decay(parser)
     add_freeze_first_head(parser)
     add_mu(parser)
+    add_layer_norm(parser)
 
 
 @output_added_arguments
@@ -266,34 +277,40 @@ def add_hlgidqnshared_arguments(parser: argparse.ArgumentParser):
     add_freeze_first_head(parser)
     add_mu(parser)
     add_distributional_arguments(parser)
+    add_layer_norm(parser)
 
 
 @output_added_arguments
 def add_fidqn_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
+    add_layer_norm(parser)
 
 
 @output_added_arguments
 def add_fidqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
+    add_layer_norm(parser)
 
 
 @output_added_arguments
 def add_hlfidqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_distributional_arguments(parser)
+    add_layer_norm(parser)
 
 
 @output_added_arguments
 def add_idqn_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_target_sync_frequency(parser)
+    add_layer_norm(parser)
 
 
 @output_added_arguments
 def add_idqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_target_sync_frequency(parser)
+    add_layer_norm(parser)
 
 
 @output_added_arguments
@@ -301,27 +318,32 @@ def add_hlidqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_target_sync_frequency(parser)
     add_distributional_arguments(parser)
+    add_layer_norm(parser)
 
 
 @output_added_arguments
 def add_dqn_arguments(parser: argparse.ArgumentParser):
+    add_layer_norm(parser)
     pass
 
 
 @output_added_arguments
 def add_hldqn_arguments(parser: argparse.ArgumentParser):
     add_distributional_arguments(parser)
+    add_layer_norm(parser)
 
 
 @output_added_arguments
 def add_dqnrc_arguments(parser: argparse.ArgumentParser):
     add_weight_decay(parser)
+    add_layer_norm(parser)
 
 
 @output_added_arguments
 def add_dqnrcshared_arguments(parser: argparse.ArgumentParser):
     add_weight_decay(parser)
     add_mu(parser)
+    add_layer_norm(parser)
 
 
 @output_added_arguments
@@ -329,3 +351,4 @@ def add_hldqnrcshared_arguments(parser: argparse.ArgumentParser):
     add_weight_decay(parser)
     add_mu(parser)
     add_distributional_arguments(parser)
+    add_layer_norm(parser)

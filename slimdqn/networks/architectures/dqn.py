@@ -34,6 +34,7 @@ class Stack(nn.Module):
 class DQNNet(nn.Module):
     features: Sequence[int]
     architecture_type: str
+    layer_norm: bool
     n_actions: int
     n_heads: int = None
     n_h_heads: int = None
@@ -43,19 +44,23 @@ class DQNNet(nn.Module):
     def __call__(self, x):
         if self.architecture_type == "cnn":
             initializer = nn.initializers.xavier_uniform()
-            idx_feature_start = 2
-            x = nn.relu(
-                nn.Conv(features=self.features[0], kernel_size=(4, 4), strides=(2, 2), kernel_init=initializer)(
+            idx_feature_start = 3
+            x = nn.Conv(features=self.features[0], kernel_size=(8,8), strides=(4,4), kernel_init=initializer)(
                     jnp.array(x, ndmin=4) / 255.0
                 )
-            )
-            x = nn.relu(
-                nn.Conv(features=self.features[1], kernel_size=(2, 2), strides=(2, 2), kernel_init=initializer)(x)
-            )
-            """  x = nn.relu(
-                nn.Conv(features=self.features[2], kernel_size=(3, 3), strides=(1, 1), kernel_init=initializer)(x)
-            ) """
+            if self.layer_norm:
+                x = nn.LayerNorm()(x)
+            x = nn.relu(x)
 
+            x = nn.Conv(features=self.features[1], kernel_size=(4, 4), strides=(2, 2), kernel_init=initializer)(x)
+            if self.layer_norm:
+                x = nn.LayerNorm()(x)
+            x = nn.relu(x)
+            x = nn.Conv(features=self.features[2], kernel_size=(3, 3), strides=(1,1), kernel_init=initializer)(x)
+            if self.layer_norm:
+                x = nn.LayerNorm()(x)
+            x = nn.relu(x)
+            #x = x.reshape((x.shape[0], -1))
             x = jnp.mean(x, axis=(1, 2))
         elif self.architecture_type == "impala":
             initializer = nn.initializers.xavier_uniform()
@@ -70,10 +75,10 @@ class DQNNet(nn.Module):
         x = jnp.squeeze(x)
 
         for idx_layer in range(idx_feature_start, len(self.features)):
-            x = nn.relu((nn.Dense(self.features[idx_layer], kernel_init=initializer)(x)))
-
-        # if self.architecture_type == "cnn":
-        #     x = nn.LayerNorm()(x)
+            x = nn.Dense(self.features[idx_layer], kernel_init=initializer)(x)
+            if self.layer_norm:
+                x = nn.LayerNorm()(x)
+            x = nn.relu(x)
 
         if self.n_bins is not None:
             if self.n_heads is None and self.n_h_heads is None:

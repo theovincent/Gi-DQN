@@ -24,6 +24,7 @@ class FiDQN:
         n_bellman_iterations: int,
         features: list,
         architecture_type: str,
+        layer_norm: bool,
         learning_rate: float,
         gamma: float,
         update_horizon: int,
@@ -32,7 +33,7 @@ class FiDQN:
         adam_eps: float = 1e-8,
     ):
         self.n_bellman_iterations = n_bellman_iterations
-        self.network = DQNNet(features, architecture_type, n_actions)
+        self.network = DQNNet(features, architecture_type, layer_norm, n_actions)
 
         # initialize K+1 networks
         self.params = jax.vmap(self.network.init, in_axes=(0, None))(

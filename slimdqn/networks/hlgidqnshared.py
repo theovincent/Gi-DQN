@@ -41,6 +41,7 @@ class HLGiDQNShared:
         n_bellman_iterations: int,
         features: list,
         architecture_type: str,
+        layer_norm: bool,
         learning_rate: float,
         gamma: float,
         update_horizon: int,
@@ -60,10 +61,10 @@ class HLGiDQNShared:
         self.n_bellman_iterations = n_bellman_iterations
         self.n_actions = n_actions
         # One Root Network Q_0
-        self.root_network = DQNNet(features, architecture_type, n_actions, n_bins=n_bins)
+        self.root_network = DQNNet(features, architecture_type, layer_norm, n_actions, n_bins=n_bins)
         # 2K Networks: Q_1 to Q_K, TD-Surrogate_1 to TD-Surrogate_K-1
         self.networks = DQNNet(
-            features, architecture_type, n_actions, n_bellman_iterations, n_bellman_iterations - 1, n_bins=n_bins
+            features, architecture_type, layer_norm, n_actions, n_bellman_iterations, n_bellman_iterations - 1, n_bins=n_bins
         )
 
         self.root_params = self.root_network.init(key_root_params, jnp.zeros(observation_dim, dtype=jnp.float32))

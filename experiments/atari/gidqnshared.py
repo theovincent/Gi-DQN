@@ -26,7 +26,7 @@ def run(argvs=sys.argv[1:]):
         update_horizon=p["update_horizon"],
         gamma=p["gamma"],
         clipping=lambda x: np.clip(x, -1, 1),
-        stack_size=2,
+        stack_size=4,
     )
     agent = GiDQNShared(
         q_key,
@@ -35,6 +35,7 @@ def run(argvs=sys.argv[1:]):
         n_bellman_iterations=p["n_bellman_iterations"],
         features=p["features"],
         architecture_type=p["architecture_type"],
+        layer_norm=p["layer_norm"],
         learning_rate=p["learning_rate"],
         gamma=p["gamma"],
         update_horizon=p["update_horizon"],
