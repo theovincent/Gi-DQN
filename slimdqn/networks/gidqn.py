@@ -39,18 +39,25 @@ class GiDQN:
         self.n_bellman_iterations = n_bellman_iterations
         self.network = DQNNet(features, architecture_type, layer_norm, n_actions)
 
+        self.znetwork = DQNNet(features, architecture_type, True, n_actions)
         # initialize K+1 online networks
         self.params = jax.vmap(self.network.init, in_axes=(0, None))(
             jax.random.split(key_params, self.n_bellman_iterations + 1), jnp.zeros(observation_dim, dtype=jnp.float32)
         )
         # initialize K TD-error estimator networks
-        self.zparams = jax.vmap(self.network.init, in_axes=(0, None))(
+        self.zparams = jax.vmap(self.znetwork.init, in_axes=(0, None))(
             jax.random.split(key_z_params, self.n_bellman_iterations), jnp.zeros(observation_dim, dtype=jnp.float32)
         )
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
         # regularize the TD-error estimator networks
-        self.z_optimizer = optax.adamw(learning_rate, eps=adam_eps, weight_decay=weight_decay)
+        self.z_optimizer = optax.adamw(
+                learning_rate, eps=adam_eps, 
+                weight_decay=weight_decay, 
+                mask=jax.tree_util.tree_map_with_path(
+                    lambda path, leaf: False if "LayerNorm" in path[1].key else True, self.zparams
+                ),
+            )
 
         self.optimizer_state = self.optimizer.init(self.params)
         self.z_optimizer_state = self.z_optimizer.init(self.zparams)
@@ -147,7 +154,7 @@ class GiDQN:
         )  # use networks 0 to K - 1 to compute targets
         td_errors = targets - q_values
 
-        z_values = jax.vmap(self.network.apply, in_axes=(0, None))(zparams, sample.state)[:, sample.action]
+        z_values = jax.vmap(self.znetwork.apply, in_axes=(0, None))(zparams, sample.state)[:, sample.action]
         z_loss = z_values * jax.lax.stop_gradient(z_values - td_errors)
 
         if not self.unfreeze_first_head:
