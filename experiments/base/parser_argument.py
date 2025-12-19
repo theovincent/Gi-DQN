@@ -180,7 +180,7 @@ def add_weight_decay(parser: argparse.ArgumentParser):
         "--weight_decay",
         help="Weighting of the regularization in weight decay.",
         type=float,
-        default=0.001,
+        default=1,
     )
 
 
@@ -212,6 +212,7 @@ def add_mu(parser: argparse.ArgumentParser):
         default=1,
     )
 
+
 @output_added_arguments
 def add_layer_norm(parser: argparse.ArgumentParser):
     parser.add_argument(
@@ -221,6 +222,7 @@ def add_layer_norm(parser: argparse.ArgumentParser):
         default=False,
         action="store_true",
     )
+
 
 @output_added_arguments
 def add_gidqn_arguments(parser: argparse.ArgumentParser):
@@ -236,18 +238,6 @@ def add_gidqnshared_arguments(parser: argparse.ArgumentParser):
     add_weight_decay(parser)
     add_freeze_first_head(parser)
     add_mu(parser)
-    add_layer_norm(parser)
-
-
-@output_added_arguments
-def add_fidqn_arguments(parser: argparse.ArgumentParser):
-    add_n_bellman_iterations(parser)
-    add_layer_norm(parser)
-
-
-@output_added_arguments
-def add_fidqnshared_arguments(parser: argparse.ArgumentParser):
-    add_n_bellman_iterations(parser)
     add_layer_norm(parser)
 
 
@@ -269,6 +259,7 @@ def add_idqnshared_arguments(parser: argparse.ArgumentParser):
 def add_dqn_arguments(parser: argparse.ArgumentParser):
     add_layer_norm(parser)
     pass
+
 
 @output_added_arguments
 def add_dqnrc_arguments(parser: argparse.ArgumentParser):

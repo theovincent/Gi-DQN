@@ -1,6 +1,7 @@
 from typing import Sequence
 
 import flax.linen as nn
+import jax
 import jax.numpy as jnp
 import time
 import numpy as np
@@ -29,6 +30,28 @@ class Stack(nn.Module):
             x += block_input
 
         return x
+
+
+class Head(nn.Module):
+    features: int
+    n_actions: int
+    initializer: nn.initializers.Initializer
+    layer_norm: bool
+
+    @nn.compact
+    def __call__(self, x):
+        x = nn.Dense(self.features, kernel_init=self.initializer)(x)
+        if self.layer_norm:
+            x = nn.LayerNorm()(x)
+        x = nn.relu(x)
+
+        return nn.Dense(self.n_actions, kernel_init=self.initializer)(x)
+
+
+def make_heads(n_heads):
+    return nn.vmap(
+        Head, variable_axes={"params": 0}, split_rngs={"params": True}, in_axes=None, out_axes=0, axis_size=n_heads
+    )
 
 
 class DQNNet(nn.Module):
@@ -73,20 +96,34 @@ class DQNNet(nn.Module):
             idx_feature_start = 0
         x = jnp.squeeze(x)
 
-        for idx_layer in range(idx_feature_start, len(self.features)):
+        for idx_layer in range(idx_feature_start, len(self.features) - 1):
             x = nn.Dense(self.features[idx_layer], kernel_init=initializer)(x)
             if self.layer_norm:
                 x = nn.LayerNorm()(x)
             x = nn.relu(x)
 
+        hidden_dim = self.features[-1]
         if self.n_heads is None and self.n_h_heads is None:
-            return nn.Dense(self.n_actions, name="Dense_final", kernel_init=initializer)(x)
-        elif self.n_h_heads is None:
-            return nn.Dense(self.n_heads * self.n_actions, name="Dense_final", kernel_init=initializer)(x).reshape(
-                (self.n_heads, self.n_actions)
-            )
-        else:
-            q_vals = nn.Dense(self.n_heads * self.n_actions, name="Dense_final", kernel_init=initializer)(x)
-            h_vals = nn.Dense(self.n_h_heads * self.n_actions, name="Dense_final_h", kernel_init=initializer)(x)
+            return Head(hidden_dim, self.n_actions, initializer, self.layer_norm, name="q_heads")(x)
 
-            return q_vals.reshape((self.n_heads, self.n_actions)), h_vals.reshape((self.n_h_heads, self.n_actions))
+        latent = x
+        q_vals = make_heads(self.n_heads)(
+            features=hidden_dim,
+            n_actions=self.n_actions,
+            layer_norm=self.layer_norm,
+            initializer=initializer,
+            name="q_heads",
+        )(latent)
+
+        if self.n_h_heads is None:
+            return q_vals
+
+        h_vals = make_heads(self.n_h_heads)(
+            features=hidden_dim,
+            n_actions=self.n_actions,
+            layer_norm=self.layer_norm,
+            initializer=initializer,
+            name="h_heads",
+        )(jax.lax.stop_gradient(latent))
+
+        return q_vals, h_vals

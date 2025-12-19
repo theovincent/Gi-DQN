@@ -10,20 +10,13 @@ from slimdqn.networks.architectures.dqn import DQNNet
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 
-@partial(jax.jit, static_argnames="n_actions")
-def shift_params(params, n_actions):
-    kernel = params["params"]["Dense_final"]["kernel"]
-    bias = params["params"]["Dense_final"]["bias"]
-    root_params = optax.tree_utils.tree_set(
-        params, Dense_final={"kernel": kernel[:, :n_actions], "bias": bias[:n_actions]}, Dense_final_h=None
-    )
-    h_kernel = params["params"]["Dense_final_h"]["kernel"]
-    h_bias = params["params"]["Dense_final_h"]["bias"]
-
-    params["params"]["Dense_final"]["kernel"] = kernel.at[:, :-n_actions].set(kernel[:, n_actions:])
-    params["params"]["Dense_final"]["bias"] = bias.at[:-n_actions].set(bias[n_actions:])
-    params["params"]["Dense_final_h"]["kernel"] = h_kernel.at[:, :-n_actions].set(h_kernel[:, n_actions:])
-    params["params"]["Dense_final_h"]["bias"] = h_bias.at[:-n_actions].set(h_bias[n_actions:])
+@partial(jax.jit)
+def shift_params(params):
+    q_heads = jax.tree.map(lambda p: p.at[:-1].set(p[1:]), params["params"]["q_heads"])
+    h_heads = jax.tree.map(lambda p: p.at[:-1].set(p[1:]), params["params"]["h_heads"])
+    first_q_head = jax.tree.map(lambda p: p[0], params["params"]["q_heads"])
+    root_params = optax.tree_utils.tree_set(params, q_heads=first_q_head, h_heads=None)
+    params = optax.tree_utils.tree_set(params, q_heads=q_heads, h_heads=h_heads)
 
     return root_params, params
 
@@ -55,7 +48,9 @@ class GiDQNShared:
         # One Root Network Q_0
         self.root_network = DQNNet(features, architecture_type, layer_norm, n_actions)
         # 2K Networks: Q_1 to Q_K, TD-Surrogate_1 to TD-Surrogate_K-1
-        self.networks = DQNNet(features, architecture_type, layer_norm, n_actions, n_bellman_iterations, n_bellman_iterations - 1)
+        self.networks = DQNNet(
+            features, architecture_type, layer_norm, n_actions, n_bellman_iterations, n_bellman_iterations - 1
+        )
 
         self.root_params = self.root_network.init(key_root_params, jnp.zeros(observation_dim, dtype=jnp.float32))
         self.params = self.networks.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32))
@@ -64,7 +59,7 @@ class GiDQNShared:
             eps=adam_eps,
             weight_decay=weight_decay,
             mask=jax.tree_util.tree_map_with_path(
-                lambda path, leaf: True if "Dense_final_h" in path[1].key else False, self.params
+                lambda path, leaf: True if "h_heads" in path[1].key else False, self.params
             ),
         )
         self.optimizer_state = self.optimizer.init(self.params)
@@ -104,7 +99,7 @@ class GiDQNShared:
     def update_target_params(self, step: int):
         # shift the network parameters every `target_update_frequency` steps. This starts the next Bellman iteration
         if step % self.target_update_frequency == 0:
-            self.root_params, self.params = shift_params(self.params, self.n_actions)
+            self.root_params, self.params = shift_params(self.params)
 
             logs = {
                 "loss": np.mean(self.cumulative_q_losses) / (self.target_update_frequency * self.update_to_data),
