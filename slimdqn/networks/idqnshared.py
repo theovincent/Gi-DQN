@@ -9,49 +9,32 @@ from slimdqn.networks.architectures.dqn import DQNNet
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 
-@partial(jax.jit, static_argnames="n_actions")
-def set_target_params(params, n_actions):
-    first_params = optax.tree_utils.tree_set(
-        params,
-        Dense_final={
-            "kernel": params["params"]["Dense_final"]["kernel"][:, :n_actions],
-            "bias": params["params"]["Dense_final"]["bias"][:n_actions],
-        },
-    )
+@partial(jax.jit)
+def set_target_params(params):
+    first_params = optax.tree_utils.tree_set(params, q_heads=jax.tree.map(lambda p: p[0], params["params"]["q_heads"]))
     remaining_params = optax.tree_utils.tree_set(
-        params,
-        Dense_final={
-            "kernel": params["params"]["Dense_final"]["kernel"][:, n_actions:],
-            "bias": params["params"]["Dense_final"]["bias"][n_actions:],
-        },
+        params, q_heads=jax.tree.map(lambda p: p[1:], params["params"]["q_heads"])
     )
 
     return first_params, remaining_params
 
 
-@partial(jax.jit, static_argnames="n_actions")
-def shift_params(params, n_actions):
+@partial(jax.jit)
+def shift_params(params):
     # Each online network is updated to the following online network
     # \theta_k <- \theta_{k + 1}, i.e., params[k] <- params[k + 1]
-    kernel = params["params"]["Dense_final"]["kernel"]
-    bias = params["params"]["Dense_final"]["bias"]
-    params["params"]["Dense_final"]["kernel"] = kernel.at[:, :-n_actions].set(kernel[:, n_actions:])
-    params["params"]["Dense_final"]["bias"] = bias.at[:-n_actions].set(bias[n_actions:])
+    q_heads = jax.tree.map(lambda p: p.at[:-1].set(p[1:]), params["params"]["q_heads"])
+    params = optax.tree_utils.tree_set(params, q_heads=q_heads)
 
     return params
 
 
-@partial(jax.jit, static_argnames="n_actions")
-def sync_target_params(params, n_actions):
+@partial(jax.jit)
+def sync_target_params(params):
     # Each target network is synchronized to the online network it represents
     # \bar{\theta}_k <- \theta_k, i.e., target_params[k] <- params[k-1]
-    return optax.tree_utils.tree_set(
-        params,
-        Dense_final={
-            "kernel": params["params"]["Dense_final"]["kernel"][:, :-n_actions],
-            "bias": params["params"]["Dense_final"]["bias"][:-n_actions],
-        },
-    )
+    leading_q_heads = jax.tree.map(lambda p: p[:-1], params["params"]["q_heads"])
+    return optax.tree_utils.tree_set(params, q_heads=leading_q_heads)
 
 
 class iDQNShared:
@@ -77,12 +60,14 @@ class iDQNShared:
         self.n_bellman_iterations = n_bellman_iterations
         self.online_networks = DQNNet(features, architecture_type, layer_norm, n_actions, self.n_bellman_iterations)
         self.root_network = DQNNet(features, architecture_type, layer_norm, n_actions)
-        self.remaining_target_networks = DQNNet(features, architecture_type, layer_norm, n_actions, self.n_bellman_iterations - 1)
+        self.remaining_target_networks = DQNNet(
+            features, architecture_type, layer_norm, n_actions, self.n_bellman_iterations - 1
+        )
 
         # initialize 1 network with K heads
         self.params = self.online_networks.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32))
         # initialize the target networks
-        self.first_target_params, self.remaining_target_params = set_target_params(self.params, n_actions)
+        self.first_target_params, self.remaining_target_params = set_target_params(self.params)
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
         self.optimizer_state = self.optimizer.init(self.params)
@@ -112,9 +97,9 @@ class iDQNShared:
         if step % self.target_update_frequency == 0:
             # Each target network is updated to its respective online network
             # \bar{\theta}_k <- \theta_{k + 1}, i.e., target_params[k] <- params[k]
-            self.first_target_params, self.remaining_target_params = set_target_params(self.params, self.n_actions)
+            self.first_target_params, self.remaining_target_params = set_target_params(self.params)
             # Window shift
-            self.params = shift_params(self.params, self.n_actions)
+            self.params = shift_params(self.params)
 
             logs = {
                 "loss": np.mean(self.cumulative_losses) / (self.target_update_frequency * self.update_to_data),
@@ -130,7 +115,7 @@ class iDQNShared:
             return True, logs
         # sync target network parameters to previous online network every target_sync_frequency steps
         if step % self.target_sync_frequency == 0:
-            self.remaining_target_params = sync_target_params(self.params, self.n_actions)
+            self.remaining_target_params = sync_target_params(self.params)
         return False, {}
 
     @partial(jax.jit, static_argnames="self")

@@ -41,7 +41,10 @@ class DQNRCShared:
             eps=adam_eps,
             weight_decay=weight_decay,
             mask=jax.tree_util.tree_map_with_path(
-                lambda path, leaf: (True if "Dense_final_h" in path[1].key else False), self.params
+                lambda path, leaf: "h_heads" in path[1].key
+                and "LayerNorm" not in path[2].key
+                and "bias" not in path[3].key,
+                self.params,
             ),
         )
         self.optimizer_state = self.optimizer.init(self.params)
