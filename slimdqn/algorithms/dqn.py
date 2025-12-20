@@ -6,7 +6,7 @@ import numpy as np
 import optax
 from flax.core import FrozenDict
 
-from slimdqn.networks.architectures.dqn import DQNNet
+from slimdqn.algorithms.architectures.dqn import DQNNet
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 
@@ -23,7 +23,7 @@ class DQN:
         gamma: float,
         update_horizon: int,
         update_to_data: int,
-        target_update_frequency: int,
+        target_update_period: int,
         adam_eps: float = 1e-8,
     ):
         self.network = DQNNet(features, architecture_type, layer_norm, n_actions)
@@ -36,7 +36,7 @@ class DQN:
         self.gamma = gamma
         self.update_horizon = update_horizon
         self.update_to_data = update_to_data
-        self.target_update_frequency = target_update_frequency
+        self.target_update_period = target_update_period
         self.cumulative_loss = 0
         self.cumulative_variance = 0
 
@@ -51,12 +51,12 @@ class DQN:
             self.cumulative_variance += variance
 
     def update_target_params(self, step: int):
-        if step % self.target_update_frequency == 0:
+        if step % self.target_update_period == 0:
             self.target_params = self.params.copy()
 
             logs = {
-                "loss": self.cumulative_loss / (self.target_update_frequency * self.update_to_data),
-                "variance": self.cumulative_variance / (self.target_update_frequency * self.update_to_data),
+                "loss": self.cumulative_loss / (self.target_update_period * self.update_to_data),
+                "variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
             }
             self.cumulative_loss = 0
             self.cumulative_variance = 0
