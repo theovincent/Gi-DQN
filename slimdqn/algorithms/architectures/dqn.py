@@ -82,8 +82,8 @@ class DQNNet(nn.Module):
             if self.layer_norm:
                 x = nn.LayerNorm()(x)
             x = nn.relu(x)
-            # x = x.reshape((x.shape[0], -1))
-            x = jnp.mean(x, axis=(1, 2))
+            x = x.reshape((x.shape[0], -1))
+            # x = jnp.mean(x, axis=(1, 2))
         elif self.architecture_type == "impala":
             initializer = nn.initializers.xavier_uniform()
             idx_feature_start = 3
