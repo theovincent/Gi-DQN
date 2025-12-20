@@ -6,7 +6,7 @@ import numpy as np
 import optax
 from flax.core import FrozenDict
 
-from slimdqn.networks.architectures.dqn import DQNNet
+from slimdqn.algorithms.architectures.dqn import DQNNet
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 
@@ -30,7 +30,7 @@ class GiDQN:
         update_horizon: int,
         update_to_data: int,
         unfreeze_first_head: bool,
-        target_update_frequency: int,
+        target_update_period: int,
         weight_decay: float,
         adam_eps: float = 1e-8,
     ):
@@ -52,12 +52,13 @@ class GiDQN:
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
         # regularize the TD-error estimator networks
         self.z_optimizer = optax.adamw(
-                learning_rate, eps=adam_eps, 
-                weight_decay=weight_decay, 
-                mask=jax.tree_util.tree_map_with_path(
-                    lambda path, leaf: False if "LayerNorm" in path[1].key else True, self.zparams
-                ),
-            )
+            learning_rate,
+            eps=adam_eps,
+            weight_decay=weight_decay,
+            mask=jax.tree_util.tree_map_with_path(
+                lambda path, leaf: False if "LayerNorm" in path[1].key else True, self.zparams
+            ),
+        )
 
         self.optimizer_state = self.optimizer.init(self.params)
         self.z_optimizer_state = self.z_optimizer.init(self.zparams)
@@ -66,7 +67,7 @@ class GiDQN:
         self.update_horizon = update_horizon
         self.update_to_data = update_to_data
         self.unfreeze_first_head = unfreeze_first_head
-        self.target_update_frequency = target_update_frequency
+        self.target_update_period = target_update_period
         self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)
         self.cumulative_z_losses = np.zeros(self.n_bellman_iterations)
         self.cumulative_variance = 0
@@ -87,23 +88,23 @@ class GiDQN:
             self.cumulative_variance += variance
 
     def update_target_params(self, step: int):
-        # shift the network parameters every `target_update_frequency` steps. This starts the next Bellman iteration
-        if step % self.target_update_frequency == 0:
+        # shift the network parameters every `target_update_period` steps. This starts the next Bellman iteration
+        if step % self.target_update_period == 0:
             self.params = shift_params(self.params)
             self.zparams = shift_params(self.zparams)
 
             logs = {
-                "loss": np.mean(self.cumulative_q_losses) / (self.target_update_frequency * self.update_to_data),
-                "variance": np.mean(self.cumulative_variance) / (self.target_update_frequency * self.update_to_data),
-                "z_loss": np.mean(self.cumulative_z_losses) / (self.target_update_frequency * self.update_to_data),
+                "loss": np.mean(self.cumulative_q_losses) / (self.target_update_period * self.update_to_data),
+                "variance": np.mean(self.cumulative_variance) / (self.target_update_period * self.update_to_data),
+                "z_loss": np.mean(self.cumulative_z_losses) / (self.target_update_period * self.update_to_data),
             }
             for idx_network in range(0, min(5, self.n_bellman_iterations)):
                 logs[f"networks/{idx_network}_loss"] = self.cumulative_q_losses[idx_network] / (
-                    self.target_update_frequency * self.update_to_data
+                    self.target_update_period * self.update_to_data
                 )
             for idx_network in range(min(5, self.n_bellman_iterations)):
                 logs[f"z_networks/{idx_network}_loss"] = self.cumulative_z_losses[idx_network] / (
-                    self.target_update_frequency * self.update_to_data
+                    self.target_update_period * self.update_to_data
                 )
 
             self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)

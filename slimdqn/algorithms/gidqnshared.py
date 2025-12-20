@@ -5,7 +5,7 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 from flax.core import FrozenDict, freeze
-from slimdqn.networks.architectures.dqn import DQNNet
+from slimdqn.algorithms.architectures.dqn import DQNNet
 
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
@@ -36,7 +36,7 @@ class GiDQNShared:
         update_horizon: int,
         update_to_data: int,
         unfreeze_first_head: bool,
-        target_update_frequency: int,
+        target_update_period: int,
         weight_decay: float,
         mu: float,
         adam_eps: float = 1e-8,
@@ -72,7 +72,7 @@ class GiDQNShared:
         self.update_horizon = update_horizon
         self.update_to_data = update_to_data
         self.unfreeze_first_head = unfreeze_first_head
-        self.target_update_frequency = target_update_frequency
+        self.target_update_period = target_update_period
         self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)
         self.cumulative_h_losses = np.zeros(self.n_bellman_iterations - 1)
         self.cumulative_variance = 0
@@ -100,22 +100,22 @@ class GiDQNShared:
             self.cumulative_variance += variance
 
     def update_target_params(self, step: int):
-        # shift the network parameters every `target_update_frequency` steps. This starts the next Bellman iteration
-        if step % self.target_update_frequency == 0:
+        # shift the network parameters every `target_update_period` steps. This starts the next Bellman iteration
+        if step % self.target_update_period == 0:
             self.root_params, self.params = shift_params(self.params)
 
             logs = {
-                "loss": np.mean(self.cumulative_q_losses) / (self.target_update_frequency * self.update_to_data),
-                "variance": np.mean(self.cumulative_variance) / (self.target_update_frequency * self.update_to_data),
-                "h_loss": np.mean(self.cumulative_h_losses) / (self.target_update_frequency * self.update_to_data),
+                "loss": np.mean(self.cumulative_q_losses) / (self.target_update_period * self.update_to_data),
+                "variance": np.mean(self.cumulative_variance) / (self.target_update_period * self.update_to_data),
+                "h_loss": np.mean(self.cumulative_h_losses) / (self.target_update_period * self.update_to_data),
             }
             for idx_network in range(0, min(5, self.n_bellman_iterations)):
                 logs[f"networks/{idx_network}_loss"] = self.cumulative_q_losses[idx_network] / (
-                    self.target_update_frequency * self.update_to_data
+                    self.target_update_period * self.update_to_data
                 )
             for idx_network in range(min(5, self.n_bellman_iterations - 1)):
                 logs[f"h_networks/{idx_network}_loss"] = self.cumulative_h_losses[idx_network] / (
-                    self.target_update_frequency * self.update_to_data
+                    self.target_update_period * self.update_to_data
                 )
 
             self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)

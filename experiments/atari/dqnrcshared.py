@@ -7,7 +7,7 @@ import numpy as np
 from experiments.base.dqn import train
 from experiments.base.utils import prepare_logs
 from slimdqn.environments.atari import AtariEnv
-from slimdqn.networks.dqnrcshared import DQNRCShared
+from slimdqn.algorithms.dqnrcshared import DQNRCShared
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer
 from slimdqn.sample_collection.samplers import Uniform
 
@@ -26,7 +26,7 @@ def run(argvs=sys.argv[1:]):
         update_horizon=p["update_horizon"],
         gamma=p["gamma"],
         clipping=lambda x: np.clip(x, -1, 1),
-        stack_size=2,
+        stack_size=4,
     )
     agent = DQNRCShared(
         q_key,
@@ -39,7 +39,7 @@ def run(argvs=sys.argv[1:]):
         gamma=p["gamma"],
         update_horizon=p["update_horizon"],
         update_to_data=p["update_to_data"],
-        target_update_frequency=p["target_update_frequency"],
+        target_update_period=p["target_update_period"],
         weight_decay=p["weight_decay"],
         mu=p["mu"],
     )

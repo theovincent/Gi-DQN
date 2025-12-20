@@ -13,8 +13,8 @@ import cv2
 class AtariEnv:
     def __init__(self, name: str, render_mode=None) -> None:
         self.name = name
-        self.state_height, self.state_width = (36, 36)
-        self.n_stacked_frames = 2
+        self.state_height, self.state_width = (84, 84)
+        self.n_stacked_frames = 4
         self.n_skipped_frames = 4
 
         gym.register_envs(ale_py)  # To use ale with gym which speeds up step()
@@ -23,9 +23,7 @@ class AtariEnv:
             full_action_space=False,
             frameskip=1,
             repeat_action_probability=0.25,
-            max_num_frames_per_episode=100_000,
-            continuous=False,
-            continuous_action_threshold=0.0,
+            max_num_frames_per_episode=108_000,
             render_mode=render_mode,
         ).env
 

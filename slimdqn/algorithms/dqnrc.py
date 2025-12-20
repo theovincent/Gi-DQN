@@ -6,7 +6,7 @@ import numpy as np
 import optax
 from flax.core import FrozenDict
 
-from slimdqn.networks.architectures.dqn import DQNNet
+from slimdqn.algorithms.architectures.dqn import DQNNet
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 
@@ -23,7 +23,7 @@ class DQNRC:
         gamma: float,
         update_horizon: int,
         update_to_data: int,
-        target_update_frequency: int,
+        target_update_period: int,
         weight_decay: float,
         adam_eps: float = 1e-8,
     ):
@@ -46,7 +46,7 @@ class DQNRC:
         self.gamma = gamma
         self.update_horizon = update_horizon
         self.update_to_data = update_to_data
-        self.target_update_frequency = target_update_frequency
+        self.target_update_period = target_update_period
         self.cumulative_q_losses = 0
         self.cumulative_z_losses = 0
         self.cumulative_variance = 0
@@ -67,13 +67,13 @@ class DQNRC:
             self.cumulative_variance += variance
 
     def update_target_params(self, step: int):
-        # shift the network parameters every `target_update_frequency` steps. This starts the next Bellman iteration
-        if step % self.target_update_frequency == 0:
+        # shift the network parameters every `target_update_period` steps. This starts the next Bellman iteration
+        if step % self.target_update_period == 0:
 
             logs = {
-                "loss": np.mean(self.cumulative_q_losses) / (self.target_update_frequency * self.update_to_data),
-                "variance": np.mean(self.cumulative_variance) / (self.target_update_frequency * self.update_to_data),
-                "z_loss": np.mean(self.cumulative_z_losses) / (self.target_update_frequency * self.update_to_data),
+                "loss": np.mean(self.cumulative_q_losses) / (self.target_update_period * self.update_to_data),
+                "variance": np.mean(self.cumulative_variance) / (self.target_update_period * self.update_to_data),
+                "z_loss": np.mean(self.cumulative_z_losses) / (self.target_update_period * self.update_to_data),
             }
 
             self.cumulative_q_losses = 0

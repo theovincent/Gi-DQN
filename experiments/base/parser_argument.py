@@ -156,8 +156,8 @@ def add_base_arguments(parser: argparse.ArgumentParser):
         default=1_000,
     )
     parser.add_argument(
-        "-tuf",
-        "--target_update_frequency",
+        "-tup",
+        "--target_update_period",
         help="Number of training steps before updating the target Q-network.",
         type=int,
         default=200,

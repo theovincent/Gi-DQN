@@ -44,7 +44,7 @@ class TestAtari(unittest.TestCase):
                 "10",
                 "--update_to_data",
                 "3",
-                "--target_update_frequency",
+                "--target_update_period",
                 "3",
                 "--n_initial_samples",
                 "3",

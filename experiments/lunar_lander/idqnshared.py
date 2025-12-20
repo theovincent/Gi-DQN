@@ -6,7 +6,7 @@ import jax
 from experiments.base.dqn import train
 from experiments.base.utils import prepare_logs
 from slimdqn.environments.lunar_lander import LunarLander
-from slimdqn.networks.idqnshared import iDQNShared
+from slimdqn.algorithms.idqnshared import iDQNShared
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer
 from slimdqn.sample_collection.samplers import Uniform
 
@@ -39,7 +39,7 @@ def run(argvs=sys.argv[1:]):
         gamma=p["gamma"],
         update_horizon=p["update_horizon"],
         update_to_data=p["update_to_data"],
-        target_update_frequency=p["target_update_frequency"],
+        target_update_period=p["target_update_period"],
         target_sync_frequency=p["target_sync_frequency"],
     )
     train(train_key, p, agent, env, rb)

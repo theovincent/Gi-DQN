@@ -113,7 +113,7 @@ class ReplayBuffer:
                     effective_horizon = 0
                 is_terminal = True
             elif subtrajectory_len >= self.update_horizon + 1:
-                effective_horizon = subtrajectory_len - 1
+                effective_horizon = self.update_horizon
                 is_terminal = False
             else:
                 return None
@@ -194,7 +194,7 @@ class ReplayBuffer:
         sample_keys, importance_weights = self.sampling_distribution.sample(batch_size)
         replay_elements = operator.itemgetter(*sample_keys)(self.memory)
         replay_elements = map(operator.methodcaller("unpack"), replay_elements)
-        return jax.tree_util.tree_map(lambda *xs: np.stack(xs), *replay_elements), importance_weights
+        return jax.tree_util.tree_map(lambda *xs: np.stack(xs), *replay_elements), (sample_keys, importance_weights)
 
     def update(self, keys, loss):
         # update function for Prioritized sampler
