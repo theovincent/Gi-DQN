@@ -2,7 +2,6 @@ from functools import partial
 
 import jax
 import jax.numpy as jnp
-import numpy as np
 import optax
 from flax.core import FrozenDict
 
@@ -38,7 +37,12 @@ class DQNRC:
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
         # regularize the TD-error estimator network
-        self.z_optimizer = optax.adamw(learning_rate, eps=adam_eps, weight_decay=weight_decay)
+        self.z_optimizer = optax.adamw(
+            learning_rate,
+            eps=adam_eps,
+            weight_decay=weight_decay,
+            mask=jax.tree_util.tree_map_with_path(lambda path, leaf: "LayerNorm" not in path[1].key, self.zparams),
+        )
 
         self.optimizer_state = self.optimizer.init(self.params)
         self.z_optimizer_state = self.z_optimizer.init(self.zparams)
@@ -47,23 +51,25 @@ class DQNRC:
         self.update_horizon = update_horizon
         self.update_to_data = update_to_data
         self.target_update_period = target_update_period
-        self.cumulative_q_losses = 0
-        self.cumulative_z_losses = 0
+        self.cumulative_q_loss = 0
+        self.cumulative_z_loss = 0
         self.cumulative_variance = 0
 
     def update_online_params(self, step: int, replay_buffer: ReplayBuffer):
-        # Update the network parameters every `update_to_data` steps
-        for _ in range(int(self.update_to_data)):
+        for _ in range(int(max(self.update_to_data, 1))):
+            # if update_to_data < 1, only perform one update if step = 0 [1 / self.update_to_data]
+            if self.update_to_data < 1 and step % (1 / self.update_to_data) != 0:
+                return None
             batch_samples, _ = replay_buffer.sample()
 
-            (self.params, self.zparams, self.optimizer_state, self.z_optimizer_state, q_losses, z_losses, variance) = (
+            (self.params, self.zparams, self.optimizer_state, self.z_optimizer_state, q_loss, z_loss, variance) = (
                 self.learn_on_batch(
                     self.params, self.zparams, self.optimizer_state, self.z_optimizer_state, batch_samples
                 )
             )
 
-            self.cumulative_q_losses += q_losses
-            self.cumulative_z_losses += z_losses
+            self.cumulative_q_loss += q_loss
+            self.cumulative_z_loss += z_loss
             self.cumulative_variance += variance
 
     def update_target_params(self, step: int):
@@ -71,13 +77,13 @@ class DQNRC:
         if step % self.target_update_period == 0:
 
             logs = {
-                "loss": np.mean(self.cumulative_q_losses) / (self.target_update_period * self.update_to_data),
-                "variance": np.mean(self.cumulative_variance) / (self.target_update_period * self.update_to_data),
-                "z_loss": np.mean(self.cumulative_z_losses) / (self.target_update_period * self.update_to_data),
+                "loss": self.cumulative_q_loss / (self.target_update_period * self.update_to_data),
+                "variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
+                "z_loss": self.cumulative_z_loss / (self.target_update_period * self.update_to_data),
             }
 
-            self.cumulative_q_losses = 0
-            self.cumulative_z_losses = 0
+            self.cumulative_q_loss = 0
+            self.cumulative_z_loss = 0
             self.cumulative_variance = 0
             return True, logs
         return False, {}
@@ -125,7 +131,7 @@ class DQNRC:
         )
 
     @partial(jax.jit, static_argnames="self")
-    def best_action(self, params: FrozenDict, state: jnp.ndarray, key: jax.Array = None):
+    def best_action(self, params: FrozenDict, state: jnp.ndarray):
         # computes the best action for a single state
         return jnp.argmax(self.network.apply(params, state))
 

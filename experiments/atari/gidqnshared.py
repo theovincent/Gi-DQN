@@ -40,10 +40,11 @@ def run(argvs=sys.argv[1:]):
         gamma=p["gamma"],
         update_horizon=p["update_horizon"],
         update_to_data=p["update_to_data"],
-        unfreeze_first_head=p["unfreeze_first_head"],
+        freeze_first_head=p["freeze_first_head"],
         target_update_period=p["target_update_period"],
         weight_decay=p["weight_decay"],
         mu=p["mu"],
+        adam_eps=1.5e-4,
     )
     train(train_key, p, agent, env, rb)
 

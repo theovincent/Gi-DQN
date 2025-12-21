@@ -29,7 +29,7 @@ class GiDQN:
         gamma: float,
         update_horizon: int,
         update_to_data: int,
-        unfreeze_first_head: bool,
+        freeze_first_head: bool,
         target_update_period: int,
         weight_decay: float,
         adam_eps: float = 1e-8,
@@ -39,14 +39,14 @@ class GiDQN:
         self.n_bellman_iterations = n_bellman_iterations
         self.network = DQNNet(features, architecture_type, layer_norm, n_actions)
 
-        self.znetwork = DQNNet(features, architecture_type, True, n_actions)
         # initialize K+1 online networks
         self.params = jax.vmap(self.network.init, in_axes=(0, None))(
             jax.random.split(key_params, self.n_bellman_iterations + 1), jnp.zeros(observation_dim, dtype=jnp.float32)
         )
-        # initialize K TD-error estimator networks
-        self.zparams = jax.vmap(self.znetwork.init, in_axes=(0, None))(
-            jax.random.split(key_z_params, self.n_bellman_iterations), jnp.zeros(observation_dim, dtype=jnp.float32)
+        # initialize K - 1 TD-error estimator networks OR K TD-error estimator networks if the first head is not frozen
+        self.zparams = jax.vmap(self.network.init, in_axes=(0, None))(
+            jax.random.split(key_z_params, self.n_bellman_iterations - int(freeze_first_head)),
+            jnp.zeros(observation_dim, dtype=jnp.float32),
         )
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
@@ -55,9 +55,7 @@ class GiDQN:
             learning_rate,
             eps=adam_eps,
             weight_decay=weight_decay,
-            mask=jax.tree_util.tree_map_with_path(
-                lambda path, leaf: False if "LayerNorm" in path[1].key else True, self.zparams
-            ),
+            mask=jax.tree_util.tree_map_with_path(lambda path, leaf: "LayerNorm" not in path[1].key, self.zparams),
         )
 
         self.optimizer_state = self.optimizer.init(self.params)
@@ -66,15 +64,17 @@ class GiDQN:
         self.gamma = gamma
         self.update_horizon = update_horizon
         self.update_to_data = update_to_data
-        self.unfreeze_first_head = unfreeze_first_head
+        self.freeze_first_head = freeze_first_head
         self.target_update_period = target_update_period
         self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)
-        self.cumulative_z_losses = np.zeros(self.n_bellman_iterations)
+        self.cumulative_z_losses = np.zeros(self.n_bellman_iterations - int(freeze_first_head))
         self.cumulative_variance = 0
 
     def update_online_params(self, step: int, replay_buffer: ReplayBuffer):
-        # Update the network parameters every `update_to_data` steps
-        for _ in range(int(self.update_to_data)):
+        for _ in range(int(max(self.update_to_data, 1))):
+            # if update_to_data < 1, only perform one update if step = 0 [1 / self.update_to_data]
+            if self.update_to_data < 1 and step % (1 / self.update_to_data) != 0:
+                return None
             batch_samples, _ = replay_buffer.sample()
 
             (self.params, self.zparams, self.optimizer_state, self.z_optimizer_state, q_losses, z_losses, variance) = (
@@ -95,20 +95,20 @@ class GiDQN:
 
             logs = {
                 "loss": np.mean(self.cumulative_q_losses) / (self.target_update_period * self.update_to_data),
-                "variance": np.mean(self.cumulative_variance) / (self.target_update_period * self.update_to_data),
+                "variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
                 "z_loss": np.mean(self.cumulative_z_losses) / (self.target_update_period * self.update_to_data),
             }
             for idx_network in range(0, min(5, self.n_bellman_iterations)):
                 logs[f"networks/{idx_network}_loss"] = self.cumulative_q_losses[idx_network] / (
                     self.target_update_period * self.update_to_data
                 )
-            for idx_network in range(min(5, self.n_bellman_iterations)):
+            for idx_network in range(min(5, self.n_bellman_iterations - int(self.freeze_first_head))):
                 logs[f"z_networks/{idx_network}_loss"] = self.cumulative_z_losses[idx_network] / (
                     self.target_update_period * self.update_to_data
                 )
 
             self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)
-            self.cumulative_z_losses = np.zeros(self.n_bellman_iterations)
+            self.cumulative_z_losses = np.zeros(self.n_bellman_iterations - int(self.freeze_first_head))
             self.cumulative_variance = 0
             return True, logs
         return False, {}
@@ -130,15 +130,11 @@ class GiDQN:
         return (params, zparams, optimizer_state, z_optimizer_state, q_losses, z_losses, variance)
 
     def loss_on_batch(self, params: FrozenDict, zparams: FrozenDict, samples):
-        # vmap to compute the loss for all samples
+        # vmap to compute the loss for all samples (batch_size, K)
         total_losses, q_losses, z_losses, variances = jax.vmap(self.loss, in_axes=(None, None, 0))(
             params, zparams, samples
         )
-        return total_losses.sum(axis=-1).mean(), (
-            q_losses.mean(axis=0),  # mean over samples but keep networks seperated
-            z_losses.mean(axis=0),  # mean over samples but keep networks seperated
-            variances.mean(),
-        )
+        return total_losses.mean(axis=0).sum(), (q_losses.mean(axis=0), z_losses.mean(axis=0), variances.mean())
 
     def loss(
         self,
@@ -153,21 +149,24 @@ class GiDQN:
         targets = jax.vmap(self.compute_target, in_axes=(0, None))(
             jax.tree.map(lambda x: x[:-1], params), sample
         )  # use networks 0 to K - 1 to compute targets
+        # (K)
         td_errors = targets - q_values
 
-        z_values = jax.vmap(self.znetwork.apply, in_axes=(0, None))(zparams, sample.state)[:, sample.action]
-        z_loss = z_values * jax.lax.stop_gradient(z_values - td_errors)
+        # (K - 1) if freeze_first_head is True OR (K)
+        z_values = jax.vmap(self.network.apply, in_axes=(0, None))(zparams, sample.state)[:, sample.action]
+        z_loss = z_values * jax.lax.stop_gradient(z_values - td_errors[int(self.freeze_first_head) :])
 
-        if not self.unfreeze_first_head:
-            # cut off the gradient flow of the first Q-Network Q_0 by overwriting the first target with a constant if we dont want to unfreeze it
-            targets = targets.at[0].set(0.0)
-        td_loss = targets * jax.lax.stop_gradient(z_values) - q_values * jax.lax.stop_gradient(td_errors)
+        target_loss = targets[int(self.freeze_first_head) :] * jax.lax.stop_gradient(z_values)
+        if self.freeze_first_head:
+            target_loss = jnp.append(jnp.zeros(0), target_loss)
+
+        td_loss = target_loss - q_values * jax.lax.stop_gradient(td_errors)
 
         return (
             td_loss + z_loss,
             jnp.square(td_errors),
-            jnp.square(z_values - td_errors),
-            (targets**2 - targets * q_values).mean(),
+            jnp.square(z_values - td_errors[int(self.freeze_first_head) :]),
+            targets**2 - targets * q_values,
         )
 
     def compute_target(self, params: FrozenDict, sample: ReplayElement):
@@ -177,10 +176,10 @@ class GiDQN:
         )
 
     @partial(jax.jit, static_argnames="self")
-    def best_action(self, params: FrozenDict, state: jnp.ndarray, key: jax.Array):
+    def best_action(self, params: FrozenDict, state: jnp.ndarray):
         # computes the best action for a single state
-        idx_params = jax.random.randint(key, (), 1, self.n_bellman_iterations + 1)
-        return jnp.argmax(self.network.apply(jax.tree.map(lambda param: param[idx_params], params), state))
+        q_predictions = jax.vmap(self.network.apply, in_axes=(0, None))(params, state)[1:]
+        return jnp.argmax(jnp.mean(q_predictions, axis=0))
 
     def get_model(self):
         return {"params": self.params, "td_estimator_params": self.zparams}

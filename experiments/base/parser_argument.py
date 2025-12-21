@@ -186,20 +186,10 @@ def add_weight_decay(parser: argparse.ArgumentParser):
 
 def add_freeze_first_head(parser: argparse.ArgumentParser):
     parser.add_argument(
-        "--unfreeze_first_head",
+        "--freeze_first_head",
         help="Whether the first network should be fixed or not for the duration of a Bellman iteration",
         action="store_true",
         default=False,
-    )
-
-
-def add_target_sync_frequency(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "-tsf",
-        "--target_sync_frequency",
-        help="Number of training steps before updating each target Q-network to its corresponding online Q-network. (D)",
-        type=int,
-        default=10,
     )
 
 
@@ -244,14 +234,12 @@ def add_gidqnshared_arguments(parser: argparse.ArgumentParser):
 @output_added_arguments
 def add_idqn_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
-    add_target_sync_frequency(parser)
     add_layer_norm(parser)
 
 
 @output_added_arguments
 def add_idqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
-    add_target_sync_frequency(parser)
     add_layer_norm(parser)
 
 

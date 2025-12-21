@@ -2,7 +2,6 @@ from functools import partial
 
 import jax
 import jax.numpy as jnp
-import numpy as np
 import optax
 from flax.core import FrozenDict
 
@@ -41,7 +40,10 @@ class DQN:
         self.cumulative_variance = 0
 
     def update_online_params(self, step: int, replay_buffer: ReplayBuffer):
-        for _ in range(int(self.update_to_data)):
+        for _ in range(int(max(self.update_to_data, 1))):
+            # if update_to_data < 1, only perform one update if step = 0 [1 / self.update_to_data]
+            if self.update_to_data < 1 and step % (1 / self.update_to_data) != 0:
+                return None
             batch_samples, _ = replay_buffer.sample()
 
             self.params, self.optimizer_state, loss, variance = self.learn_on_batch(
@@ -97,7 +99,7 @@ class DQN:
         )
 
     @partial(jax.jit, static_argnames="self")
-    def best_action(self, params: FrozenDict, state: jnp.ndarray, key=None):
+    def best_action(self, params: FrozenDict, state: jnp.ndarray):
         # computes the best action for a single state
         return jnp.argmax(self.network.apply(params, state))
 

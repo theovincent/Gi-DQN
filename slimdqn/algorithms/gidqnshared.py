@@ -35,7 +35,7 @@ class GiDQNShared:
         gamma: float,
         update_horizon: int,
         update_to_data: int,
-        unfreeze_first_head: bool,
+        freeze_first_head: bool,
         target_update_period: int,
         weight_decay: float,
         mu: float,
@@ -71,7 +71,7 @@ class GiDQNShared:
         self.gamma = gamma
         self.update_horizon = update_horizon
         self.update_to_data = update_to_data
-        self.unfreeze_first_head = unfreeze_first_head
+        self.freeze_first_head = freeze_first_head
         self.target_update_period = target_update_period
         self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)
         self.cumulative_h_losses = np.zeros(self.n_bellman_iterations - 1)
