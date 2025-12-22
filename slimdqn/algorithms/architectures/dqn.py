@@ -3,8 +3,6 @@ from typing import Sequence
 import flax.linen as nn
 import jax
 import jax.numpy as jnp
-import time
-import numpy as np
 
 
 class Stack(nn.Module):
@@ -58,9 +56,10 @@ class DQNNet(nn.Module):
     features: Sequence[int]
     architecture_type: str
     layer_norm: bool
+    gap: bool
     n_actions: int
-    n_heads: int = None
-    n_h_heads: int = None
+    n_heads: int
+    n_h_heads: int
 
     @nn.compact
     def __call__(self, x):
@@ -82,8 +81,10 @@ class DQNNet(nn.Module):
             if self.layer_norm:
                 x = nn.LayerNorm()(x)
             x = nn.relu(x)
-            x = x.reshape((x.shape[0], -1))
-            # x = jnp.mean(x, axis=(1, 2))
+            if self.gap:
+                x = jnp.mean(x, axis=(1, 2))
+            else:
+                x = x.reshape((x.shape[0], -1))
         elif self.architecture_type == "impala":
             initializer = nn.initializers.xavier_uniform()
             idx_feature_start = 3
@@ -102,28 +103,20 @@ class DQNNet(nn.Module):
                 x = nn.LayerNorm()(x)
             x = nn.relu(x)
 
-        hidden_dim = self.features[-1]
-        if self.n_heads is None and self.n_h_heads is None:
-            return Head(hidden_dim, self.n_actions, initializer, self.layer_norm, name="q_heads")(x)
+        if self.n_heads == 1:
+            q_vals = Head(self.features[-1], self.n_actions, initializer, self.layer_norm, name="q_heads")(x)
+        else:
+            q_vals = make_heads(self.n_heads)(
+                self.features[-1], self.n_actions, self.layer_norm, initializer, "q_heads"
+            )(x)
 
-        latent = x
-        q_vals = make_heads(self.n_heads)(
-            features=hidden_dim,
-            n_actions=self.n_actions,
-            layer_norm=self.layer_norm,
-            initializer=initializer,
-            name="q_heads",
-        )(latent)
-
-        if self.n_h_heads is None:
+        if self.n_h_heads == 0:
             return q_vals
-
-        h_vals = make_heads(self.n_h_heads)(
-            features=hidden_dim,
-            n_actions=self.n_actions,
-            layer_norm=self.layer_norm,
-            initializer=initializer,
-            name="h_heads",
-        )(jax.lax.stop_gradient(latent))
-
-        return q_vals, h_vals
+        elif self.n_h_heads == 1:
+            return q_vals, Head(self.features[-1], self.n_actions, initializer, self.layer_norm, name="h_heads")(
+                jax.lax.stop_gradient(x)
+            )
+        else:
+            return q_vals, make_heads(self.n_h_heads)(
+                self.features[-1], self.n_actions, self.layer_norm, initializer, "h_heads"
+            )(jax.lax.stop_gradient(x))

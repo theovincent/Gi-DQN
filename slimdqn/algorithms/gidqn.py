@@ -37,7 +37,7 @@ class GiDQN:
         key_params, key_z_params = jax.random.split(key, 2)
 
         self.n_bellman_iterations = n_bellman_iterations
-        self.network = DQNNet(features, architecture_type, layer_norm, n_actions)
+        self.network = DQNNet(features, architecture_type, layer_norm, n_actions, n_heads=1, n_h_heads=0)
 
         # initialize K+1 online networks
         self.params = jax.vmap(self.network.init, in_axes=(0, None))(

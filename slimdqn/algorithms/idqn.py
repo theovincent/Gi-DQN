@@ -33,7 +33,7 @@ class iDQN:
         adam_eps: float = 1e-8,
     ):
         self.n_bellman_iterations = n_bellman_iterations
-        self.network = DQNNet(features, architecture_type, layer_norm, n_actions)
+        self.network = DQNNet(features, architecture_type, layer_norm, n_actions, n_heads=1, n_h_heads=0)
 
         # initialize K networks
         self.params = jax.vmap(self.network.init, in_axes=(0, None))(

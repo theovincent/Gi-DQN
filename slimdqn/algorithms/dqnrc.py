@@ -28,7 +28,7 @@ class DQNRC:
     ):
         key_params, key_z_params = jax.random.split(key, 2)
 
-        self.network = DQNNet(features, architecture_type, layer_norm, n_actions)
+        self.network = DQNNet(features, architecture_type, layer_norm, n_actions, n_heads=1, n_h_heads=0)
 
         # initialize online network
         self.params = self.network.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32))
@@ -75,7 +75,6 @@ class DQNRC:
     def update_target_params(self, step: int):
         # shift the network parameters every `target_update_period` steps. This starts the next Bellman iteration
         if step % self.target_update_period == 0:
-
             logs = {
                 "loss": self.cumulative_q_loss / (self.target_update_period * self.update_to_data),
                 "variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),

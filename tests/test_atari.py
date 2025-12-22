@@ -24,7 +24,7 @@ class TestAtari(unittest.TestCase):
                 "--features",
                 "2",
                 "3",
-                "1",
+                "2",
                 "15",
                 "--replay_buffer_capacity",
                 "100",

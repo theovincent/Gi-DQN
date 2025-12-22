@@ -2,7 +2,6 @@ from functools import partial
 
 import jax
 import jax.numpy as jnp
-import numpy as np
 import optax
 from flax.core import FrozenDict
 
@@ -41,10 +40,7 @@ class DQNRCShared:
             eps=adam_eps,
             weight_decay=weight_decay,
             mask=jax.tree_util.tree_map_with_path(
-                lambda path, leaf: "h_heads" in path[1].key
-                and "LayerNorm" not in path[2].key
-                and "bias" not in path[3].key,
-                self.params,
+                lambda path, leaf: "h_heads" in path[1].key and "LayerNorm" not in path[2].key, self.params
             ),
         )
         self.optimizer_state = self.optimizer.init(self.params)
@@ -54,35 +50,36 @@ class DQNRCShared:
         self.update_horizon = update_horizon
         self.update_to_data = update_to_data
         self.target_update_period = target_update_period
-        self.cumulative_q_losses = 0
-        self.cumulative_h_losses = 0
+        self.cumulative_q_loss = 0
+        self.cumulative_h_loss = 0
         self.cumulative_variance = 0
 
     def update_online_params(self, step: int, replay_buffer: ReplayBuffer):
-        # Update the network parameters every `update_to_data` steps
-        for _ in range(int(self.update_to_data)):
+        for _ in range(int(max(self.update_to_data, 1))):
+            # if update_to_data < 1, only perform one update if step = 0 [1 / self.update_to_data]
+            if self.update_to_data < 1 and step % (1 / self.update_to_data) != 0:
+                return None
             batch_samples, _ = replay_buffer.sample()
 
-            (self.params, self.optimizer_state, q_losses, h_losses, variance) = self.learn_on_batch(
+            (self.params, self.optimizer_state, q_loss, h_loss, variance) = self.learn_on_batch(
                 self.params, self.optimizer_state, batch_samples
             )
 
-            self.cumulative_q_losses += q_losses
-            self.cumulative_h_losses += h_losses
+            self.cumulative_q_loss += q_loss
+            self.cumulative_h_loss += h_loss
             self.cumulative_variance += variance
 
     def update_target_params(self, step: int):
         # shift the network parameters every `target_update_period` steps. This starts the next Bellman iteration
         if step % self.target_update_period == 0:
-
             logs = {
-                "loss": np.mean(self.cumulative_q_losses) / (self.target_update_period * self.update_to_data),
-                "variance": np.mean(self.cumulative_variance) / (self.target_update_period * self.update_to_data),
-                "h_loss": np.mean(self.cumulative_h_losses) / (self.target_update_period * self.update_to_data),
+                "loss": self.cumulative_q_loss / (self.target_update_period * self.update_to_data),
+                "variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
+                "h_loss": self.cumulative_h_loss / (self.target_update_period * self.update_to_data),
             }
 
-            self.cumulative_q_losses = 0
-            self.cumulative_h_losses = 0
+            self.cumulative_q_loss = 0
+            self.cumulative_h_loss = 0
             self.cumulative_variance = 0
             return True, logs
         return False, {}
@@ -99,16 +96,15 @@ class DQNRCShared:
 
     def loss_on_batch(self, params: FrozenDict, samples):
         # vmap to compute the loss for all samples
-        total_losses, q_losses, h_losses, variances = jax.vmap(self.loss, in_axes=(None, 0))(params, samples)
-        return total_losses.mean(), (q_losses.mean(), h_losses.mean(), variances.mean())
+        total_loss, q_loss, h_loss, variance = jax.vmap(self.loss, in_axes=(None, 0))(params, samples)
+        return total_loss.mean(), (q_loss.mean(), h_loss.mean(), variance.mean())
 
     def loss(self, params: FrozenDict, sample: ReplayElement):
         # computes the loss for a single sample
-        q_output, h_output = self.network.apply(params, sample.state)
-        q_value, h_value = q_output[0, sample.action], h_output[0, sample.action]
-        next_q_value = self.network.apply(params, sample.next_state)[0][0]
+        q_values, h_values = self.network.apply(params, sample.state)
+        q_value, h_value = q_values[sample.action], h_values[sample.action]
 
-        target = self.compute_target(next_q_value, sample)
+        target = self.compute_target(params, sample)
         td_error = target - q_value
         h_loss = h_value * jax.lax.stop_gradient(h_value - td_error)
         td_loss = target * jax.lax.stop_gradient(h_value) - q_value * jax.lax.stop_gradient(td_error)
@@ -120,14 +116,16 @@ class DQNRCShared:
             target**2 - target * q_value,
         )
 
-    def compute_target(self, next_q, sample: ReplayElement):
+    def compute_target(self, params: FrozenDict, sample: ReplayElement):
         # computes the target value for single sample
-        return sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * jnp.max(next_q)
+        return sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * jnp.max(
+            self.network.apply(params, sample.next_state)[0]
+        )
 
     @partial(jax.jit, static_argnames="self")
-    def best_action(self, params: FrozenDict, state: jnp.ndarray, key: jax.Array = None):
+    def best_action(self, params: FrozenDict, state: jnp.ndarray):
         # computes the best action for a single state
-        return jnp.argmax(self.network.apply(params, state)[0][0])
+        return jnp.argmax(self.network.apply(params, state)[0])
 
     def get_model(self):
         return {"params": self.params}
