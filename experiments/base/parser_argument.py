@@ -162,6 +162,13 @@ def add_base_arguments(parser: argparse.ArgumentParser):
         type=int,
         default=200,
     )
+    parser.add_argument(
+        "-ln",
+        "--layer_norm",
+        help="Whether to use layer normalization.",
+        default=False,
+        action="store_true",
+    )
 
 
 def add_n_bellman_iterations(parser: argparse.ArgumentParser):
@@ -193,25 +200,29 @@ def add_freeze_first_head(parser: argparse.ArgumentParser):
     )
 
 
-def add_mu(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "-mu",
-        "--mu",
-        help="Factor that is multiplied by the alpha loss before adding it to the overall loss.",
-        type=float,
-        default=1,
-    )
+@output_added_arguments
+def add_dqn_arguments(parser: argparse.ArgumentParser):
+    pass
 
 
 @output_added_arguments
-def add_layer_norm(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "-ln",
-        "--layer_norm",
-        help="Whether to use layer normalization.",
-        default=False,
-        action="store_true",
-    )
+def add_dqnrc_arguments(parser: argparse.ArgumentParser):
+    add_weight_decay(parser)
+
+
+@output_added_arguments
+def add_dqnrcshared_arguments(parser: argparse.ArgumentParser):
+    add_weight_decay(parser)
+
+
+@output_added_arguments
+def add_idqn_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+
+
+@output_added_arguments
+def add_idqnshared_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
 
 
 @output_added_arguments
@@ -219,7 +230,6 @@ def add_gidqn_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
     add_freeze_first_head(parser)
-    add_layer_norm(parser)
 
 
 @output_added_arguments
@@ -227,36 +237,3 @@ def add_gidqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
     add_freeze_first_head(parser)
-    add_mu(parser)
-    add_layer_norm(parser)
-
-
-@output_added_arguments
-def add_idqn_arguments(parser: argparse.ArgumentParser):
-    add_n_bellman_iterations(parser)
-    add_layer_norm(parser)
-
-
-@output_added_arguments
-def add_idqnshared_arguments(parser: argparse.ArgumentParser):
-    add_n_bellman_iterations(parser)
-    add_layer_norm(parser)
-
-
-@output_added_arguments
-def add_dqn_arguments(parser: argparse.ArgumentParser):
-    add_layer_norm(parser)
-    pass
-
-
-@output_added_arguments
-def add_dqnrc_arguments(parser: argparse.ArgumentParser):
-    add_weight_decay(parser)
-    add_layer_norm(parser)
-
-
-@output_added_arguments
-def add_dqnrcshared_arguments(parser: argparse.ArgumentParser):
-    add_weight_decay(parser)
-    add_mu(parser)
-    add_layer_norm(parser)

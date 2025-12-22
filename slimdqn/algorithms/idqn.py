@@ -25,6 +25,7 @@ class iDQN:
         features: list,
         architecture_type: str,
         layer_norm: bool,
+        gap: bool,
         learning_rate: float,
         gamma: float,
         update_horizon: int,
@@ -33,7 +34,7 @@ class iDQN:
         adam_eps: float = 1e-8,
     ):
         self.n_bellman_iterations = n_bellman_iterations
-        self.network = DQNNet(features, architecture_type, layer_norm, n_actions, n_heads=1, n_h_heads=0)
+        self.network = DQNNet(features, architecture_type, layer_norm, gap, n_actions, n_heads=1, n_h_heads=0)
 
         # initialize K networks
         self.params = jax.vmap(self.network.init, in_axes=(0, None))(
@@ -57,7 +58,7 @@ class iDQN:
                 return None
             batch_samples, _ = replay_buffer.sample()
 
-            (self.params, self.optimizer_state, losses, variance) = self.learn_on_batch(
+            self.params, self.optimizer_state, losses, variance = self.learn_on_batch(
                 self.params, self.optimizer_state, batch_samples
             )
 
@@ -91,7 +92,7 @@ class iDQN:
 
         params = optax.apply_updates(params, updates)
 
-        return (params, optimizer_state, losses, variance)
+        return params, optimizer_state, losses, variance
 
     def loss_on_batch(self, params: FrozenDict, samples):
         losses, variances = jax.vmap(self.loss, in_axes=(None, None, 0))(params, samples)
@@ -106,7 +107,7 @@ class iDQN:
         targets = jax.vmap(self.compute_target, in_axes=(0, None))(jax.tree.map(lambda x: x[:-1], params), sample)
         td_errors = jax.lax.stop_gradient(targets) - q_values
 
-        return (jnp.square(td_errors), targets**2 - targets * q_values)
+        return jnp.square(td_errors), targets**2 - targets * q_values
 
     def compute_target(self, params: FrozenDict, sample: ReplayElement):
         # computes the target value for single sample

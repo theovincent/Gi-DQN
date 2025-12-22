@@ -18,6 +18,7 @@ class DQNRC:
         features: list,
         architecture_type: str,
         layer_norm: bool,
+        gap: bool,
         learning_rate: float,
         gamma: float,
         update_horizon: int,
@@ -28,7 +29,7 @@ class DQNRC:
     ):
         key_params, key_z_params = jax.random.split(key, 2)
 
-        self.network = DQNNet(features, architecture_type, layer_norm, n_actions, n_heads=1, n_h_heads=0)
+        self.network = DQNNet(features, architecture_type, layer_norm, gap, n_actions, n_heads=1, n_h_heads=0)
 
         # initialize online network
         self.params = self.network.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32))
@@ -62,7 +63,7 @@ class DQNRC:
                 return None
             batch_samples, _ = replay_buffer.sample()
 
-            (self.params, self.zparams, self.optimizer_state, self.z_optimizer_state, q_loss, z_loss, variance) = (
+            self.params, self.zparams, self.optimizer_state, self.z_optimizer_state, q_loss, z_loss, variance = (
                 self.learn_on_batch(
                     self.params, self.zparams, self.optimizer_state, self.z_optimizer_state, batch_samples
                 )
@@ -101,7 +102,7 @@ class DQNRC:
         params = optax.apply_updates(params, updates)
         zparams = optax.apply_updates(zparams, z_updates)
 
-        return (params, zparams, optimizer_state, z_optimizer_state, q_losses, z_losses, variance)
+        return params, zparams, optimizer_state, z_optimizer_state, q_losses, z_losses, variance
 
     def loss_on_batch(self, params: FrozenDict, zparams: FrozenDict, samples):
         # vmap to compute the loss for all samples
@@ -121,7 +122,7 @@ class DQNRC:
 
         td_loss = target * jax.lax.stop_gradient(z_value) - q_value * jax.lax.stop_gradient(td_error)
 
-        return (td_loss + z_loss, jnp.square(td_error), jnp.square(z_value - td_error), target**2 - target * q_value)
+        return td_loss + z_loss, jnp.square(td_error), jnp.square(z_value - td_error), target**2 - target * q_value
 
     def compute_target(self, params: FrozenDict, sample: ReplayElement):
         # computes the target value for single sample

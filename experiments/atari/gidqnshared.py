@@ -36,6 +36,7 @@ def run(argvs=sys.argv[1:]):
         features=p["features"],
         architecture_type=p["architecture_type"],
         layer_norm=p["layer_norm"],
+        gap=p["gap"],
         learning_rate=p["learning_rate"],
         gamma=p["gamma"],
         update_horizon=p["update_horizon"],
@@ -43,7 +44,6 @@ def run(argvs=sys.argv[1:]):
         freeze_first_head=p["freeze_first_head"],
         target_update_period=p["target_update_period"],
         weight_decay=p["weight_decay"],
-        mu=p["mu"],
         adam_eps=1.5e-4,
     )
     train(train_key, p, agent, env, rb)

@@ -18,18 +18,18 @@ class DQNRCShared:
         features: list,
         architecture_type: str,
         layer_norm: bool,
+        gap: bool,
         learning_rate: float,
         gamma: float,
         update_horizon: int,
         update_to_data: int,
         target_update_period: int,
         weight_decay: float,
-        mu: float,
         adam_eps: float = 1e-8,
     ):
         key, key_params = jax.random.split(key)
         self.n_actions = n_actions
-        self.network = DQNNet(features, architecture_type, layer_norm, n_actions, n_heads=1, n_h_heads=1)
+        self.network = DQNNet(features, architecture_type, layer_norm, gap, n_actions, n_heads=1, n_h_heads=1)
 
         # initialize online network
         self.params = self.network.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32))
@@ -45,7 +45,6 @@ class DQNRCShared:
         )
         self.optimizer_state = self.optimizer.init(self.params)
 
-        self.mu = mu
         self.gamma = gamma
         self.update_horizon = update_horizon
         self.update_to_data = update_to_data
@@ -61,7 +60,7 @@ class DQNRCShared:
                 return None
             batch_samples, _ = replay_buffer.sample()
 
-            (self.params, self.optimizer_state, q_loss, h_loss, variance) = self.learn_on_batch(
+            self.params, self.optimizer_state, q_loss, h_loss, variance = self.learn_on_batch(
                 self.params, self.optimizer_state, batch_samples
             )
 
@@ -86,13 +85,13 @@ class DQNRCShared:
 
     @partial(jax.jit, static_argnames="self")
     def learn_on_batch(self, params: FrozenDict, optimizer_state, batch_samples):
-        (grad_loss), (q_losses, h_losses, variance) = jax.grad(self.loss_on_batch, has_aux=True)(params, batch_samples)
+        grad_loss, (q_losses, h_losses, variance) = jax.grad(self.loss_on_batch, has_aux=True)(params, batch_samples)
 
         updates, optimizer_state = self.optimizer.update(grad_loss, optimizer_state, params)
 
         params = optax.apply_updates(params, updates)
 
-        return (params, optimizer_state, q_losses, h_losses, variance)
+        return params, optimizer_state, q_losses, h_losses, variance
 
     def loss_on_batch(self, params: FrozenDict, samples):
         # vmap to compute the loss for all samples
@@ -109,12 +108,7 @@ class DQNRCShared:
         h_loss = h_value * jax.lax.stop_gradient(h_value - td_error)
         td_loss = target * jax.lax.stop_gradient(h_value) - q_value * jax.lax.stop_gradient(td_error)
 
-        return (
-            td_loss + self.mu * h_loss,
-            jnp.square(td_error),
-            jnp.square(h_value - td_error),
-            target**2 - target * q_value,
-        )
+        return td_loss + h_loss, jnp.square(td_error), jnp.square(h_value - td_error), target**2 - target * q_value
 
     def compute_target(self, params: FrozenDict, sample: ReplayElement):
         # computes the target value for single sample
