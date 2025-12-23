@@ -28,6 +28,7 @@ class TestDQN(unittest.TestCase):
             ],
             "impala",
             True,
+            False,
             0.001,
             0.94,
             1,

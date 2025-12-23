@@ -36,6 +36,7 @@ def run(argvs=sys.argv[1:]):
         architecture_type=p["architecture_type"],
         layer_norm=p["layer_norm"],
         gap=p["gap"],
+        linear_heads=p["linear_heads"],
         learning_rate=p["learning_rate"],
         gamma=p["gamma"],
         update_horizon=p["update_horizon"],

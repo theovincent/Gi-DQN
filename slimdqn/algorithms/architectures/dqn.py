@@ -57,6 +57,7 @@ class DQNNet(nn.Module):
     architecture_type: str
     layer_norm: bool
     gap: bool
+    linear_heads: bool
     n_actions: int
     n_heads: int
     n_h_heads: int
@@ -97,26 +98,46 @@ class DQNNet(nn.Module):
             idx_feature_start = 0
         x = jnp.squeeze(x)
 
-        for idx_layer in range(idx_feature_start, len(self.features) - 1):
+        for idx_layer in range(idx_feature_start, len(self.features) - 1 + int(self.linear_heads)):
             x = nn.Dense(self.features[idx_layer], kernel_init=initializer)(x)
             if self.layer_norm:
                 x = nn.LayerNorm()(x)
             x = nn.relu(x)
 
         if self.n_heads == 1:
-            q_vals = Head(self.features[-1], self.n_actions, initializer, self.layer_norm, name="q_heads")(x)
+            if self.linear_heads:
+                q_vals = nn.Dense(self.n_actions, kernel_init=initializer, name="q_heads")(x)
+            else:
+                q_vals = Head(self.features[-1], self.n_actions, initializer, self.layer_norm, name="q_heads")(x)
         else:
-            q_vals = make_heads(self.n_heads)(
-                self.features[-1], self.n_actions, self.layer_norm, initializer, "q_heads"
-            )(x)
+            if self.linear_heads:
+                q_vals = nn.Dense(self.n_heads * self.n_actions, kernel_init=initializer, name="q_heads")(x).reshape(
+                    (-1, self.n_heads, self.n_actions)
+                )
+                q_vals = jnp.squeeze(q_vals)
+            else:
+                q_vals = make_heads(self.n_heads)(
+                    self.features[-1], self.n_actions, self.layer_norm, initializer, "q_heads"
+                )(x)
 
         if self.n_h_heads == 0:
             return q_vals
         elif self.n_h_heads == 1:
-            return q_vals, Head(self.features[-1], self.n_actions, initializer, self.layer_norm, name="h_heads")(
-                jax.lax.stop_gradient(x)
-            )
+            if self.linear_heads:
+                h_vals = nn.Dense(self.n_actions, kernel_init=initializer, name="h_heads")(jax.lax.stop_gradient(x))
+            else:
+                h_vals = Head(self.features[-1], self.n_actions, initializer, self.layer_norm, name="h_heads")(
+                    jax.lax.stop_gradient(x)
+                )
+            return q_vals, h_vals
         else:
-            return q_vals, make_heads(self.n_h_heads)(
-                self.features[-1], self.n_actions, self.layer_norm, initializer, "h_heads"
-            )(jax.lax.stop_gradient(x))
+            if self.linear_heads:
+                h_vals = nn.Dense(self.n_h_heads * self.n_actions, kernel_init=initializer, name="q_heads")(
+                    jax.lax.stop_gradient(x)
+                ).reshape((-1, self.n_h_heads, self.n_actions))
+                h_vals = jnp.squeeze(h_vals)
+            else:
+                h_vals = make_heads(self.n_h_heads)(
+                    self.features[-1], self.n_actions, self.layer_norm, initializer, "h_heads"
+                )(jax.lax.stop_gradient(x))
+            return q_vals, h_vals

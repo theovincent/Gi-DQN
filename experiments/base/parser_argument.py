@@ -169,6 +169,12 @@ def add_base_arguments(parser: argparse.ArgumentParser):
         default=False,
         action="store_true",
     )
+    parser.add_argument(
+        "--gap",
+        help="Whether to use Global Average Pruning.",
+        default=False,
+        action="store_true",
+    )
 
 
 def add_n_bellman_iterations(parser: argparse.ArgumentParser):
@@ -188,6 +194,15 @@ def add_weight_decay(parser: argparse.ArgumentParser):
         help="Weighting of the regularization in weight decay.",
         type=float,
         default=1,
+    )
+
+
+def add_linear_heads(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "--linear_heads",
+        help="Whether to share only the last layer instead of the two last layers.",
+        default=False,
+        action="store_true",
     )
 
 
@@ -213,6 +228,7 @@ def add_dqnrc_arguments(parser: argparse.ArgumentParser):
 @output_added_arguments
 def add_dqnrcshared_arguments(parser: argparse.ArgumentParser):
     add_weight_decay(parser)
+    add_linear_heads(parser)
 
 
 @output_added_arguments
@@ -223,6 +239,7 @@ def add_idqn_arguments(parser: argparse.ArgumentParser):
 @output_added_arguments
 def add_idqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
+    add_linear_heads(parser)
 
 
 @output_added_arguments
@@ -237,3 +254,4 @@ def add_gidqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
     add_freeze_first_head(parser)
+    add_linear_heads(parser)

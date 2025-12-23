@@ -35,6 +35,7 @@ class GiDQNShared:
         architecture_type: str,
         layer_norm: bool,
         gap: bool,
+        linear_heads: bool,
         learning_rate: float,
         gamma: float,
         update_horizon: int,
@@ -52,11 +53,14 @@ class GiDQNShared:
             architecture_type,
             layer_norm,
             gap,
+            linear_heads,
             n_actions,
             n_heads=self.n_bellman_iterations,
             n_h_heads=self.n_bellman_iterations - int(freeze_first_head),
         )
-        self.root_network = DQNNet(features, architecture_type, layer_norm, gap, n_actions, n_heads=1, n_h_heads=0)
+        self.root_network = DQNNet(
+            features, architecture_type, layer_norm, gap, linear_heads, n_actions, n_heads=1, n_h_heads=0
+        )
 
         # initialize 1 network with K q-heads and K OR K-1 h-heads
         self.params = self.online_networks.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
