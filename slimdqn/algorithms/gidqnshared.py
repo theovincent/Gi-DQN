@@ -71,9 +71,7 @@ class GiDQNShared:
             learning_rate,
             eps=adam_eps,
             weight_decay=weight_decay,
-            mask=jax.tree_util.tree_map_with_path(
-                lambda path, leaf: "h_heads" in path[1].key and "LayerNorm" not in path[2].key, self.params
-            ),
+            mask=jax.tree_util.tree_map_with_path(lambda path, _: "h_heads" in path[1].key, self.params),
         )
         self.optimizer_state = self.optimizer.init(self.params)
 
