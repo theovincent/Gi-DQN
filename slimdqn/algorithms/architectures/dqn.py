@@ -47,8 +47,9 @@ class Head(nn.Module):
 
 
 def make_heads(n_heads):
+    # params for Bellman iterations mapped to last axis, outputs for Bellman iterations are stacked in 2nd last axis (last axis is for actions)
     return nn.vmap(
-        Head, variable_axes={"params": 0}, split_rngs={"params": True}, in_axes=None, out_axes=0, axis_size=n_heads
+        Head, variable_axes={"params": -1}, split_rngs={"params": True}, in_axes=None, out_axes=-2, axis_size=n_heads
     )
 
 

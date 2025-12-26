@@ -9,9 +9,19 @@ from slimdqn.algorithms.architectures.dqn import DQNNet
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 
-@jax.jit
-def set_target_params(params):
-    return optax.tree_utils.tree_set(params, q_heads=jax.tree.map(lambda p: p[0], params["params"]["q_heads"]))
+@partial(jax.jit, static_argnames="n_actions")
+def set_target_params(params, n_actions):
+    return optax.tree_utils.tree_set(
+        params,
+        q_heads=jax.tree_util.tree_map_with_path(
+            lambda path, leaf: (
+                leaf[..., :n_actions]
+                if (path[-1].key == "kernel" and leaf.ndim == 2) or (path[-1].key == "bias" and leaf.ndim == 1)
+                else leaf[..., 0]
+            ),
+            params["params"]["q_heads"],
+        ),
+    )
 
 
 @jax.jit
@@ -59,7 +69,7 @@ class iDQNShared:
         # initialize 1 network with K heads
         self.params = self.online_networks.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
         # initialize the target networks
-        self.target_params = set_target_params(self.params)
+        self.target_params = set_target_params(self.params, self.n_actions)
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
         self.optimizer_state = self.optimizer.init(self.params)
@@ -88,7 +98,7 @@ class iDQNShared:
     def update_target_params(self, step: int):
         # update target network parameters every target_update_period steps. This starts the next Bellman iteration
         if step % self.target_update_period == 0:
-            self.target_params = set_target_params(self.params)
+            self.target_params = set_target_params(self.params, self.n_actions)
             # Window shift
             self.params = shift_params(self.params)
 
