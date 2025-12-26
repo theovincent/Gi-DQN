@@ -95,7 +95,7 @@ class iDQN:
         return params, optimizer_state, losses, variance
 
     def loss_on_batch(self, params: FrozenDict, samples):
-        losses, variances = jax.vmap(self.loss, in_axes=(None, None, 0))(params, samples)
+        losses, variances = jax.vmap(self.loss, in_axes=(None, 0))(params, samples)
 
         return losses.mean(axis=0).sum(), (losses.mean(axis=0), variances.mean())
 
