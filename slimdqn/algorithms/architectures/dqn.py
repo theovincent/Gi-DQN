@@ -132,7 +132,7 @@ class DQNNet(nn.Module):
             return q_vals, h_vals
         else:
             if self.linear_heads:
-                h_vals = nn.Dense(self.n_h_heads * self.n_actions, kernel_init=initializer, name="q_heads")(
+                h_vals = nn.Dense(self.n_h_heads * self.n_actions, kernel_init=initializer, name="h_heads")(
                     jax.lax.stop_gradient(x)
                 ).reshape((-1, self.n_h_heads, self.n_actions))
                 h_vals = jnp.squeeze(h_vals)
