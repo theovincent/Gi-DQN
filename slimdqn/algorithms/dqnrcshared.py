@@ -28,14 +28,13 @@ class DQNRCShared:
         weight_decay: float,
         adam_eps: float = 1e-8,
     ):
-        key, key_params = jax.random.split(key)
         self.n_actions = n_actions
         self.network = DQNNet(
             features, architecture_type, layer_norm, gap, linear_heads, n_actions, n_heads=1, n_h_heads=1
         )
 
         # initialize online network
-        self.params = self.network.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32))
+        self.params = self.network.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
 
         # regularize the TD-error estimator network
         self.optimizer = optax.adamw(

@@ -27,7 +27,7 @@ class DQNRC:
         weight_decay: float,
         adam_eps: float = 1e-8,
     ):
-        key_params, key_h_params = jax.random.split(key, 2)
+        key_params, key_h_params = jax.random.split(key)
 
         self.network = DQNNet(features, architecture_type, layer_norm, gap, False, n_actions, n_heads=1, n_h_heads=0)
 
