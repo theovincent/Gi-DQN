@@ -38,18 +38,21 @@ class Head(nn.Module):
 
     @nn.compact
     def __call__(self, x):
-        x = nn.Dense(self.features, kernel_init=self.initializer)(x)
-        if self.layer_norm:
-            x = nn.LayerNorm()(x)
-        x = nn.relu(x)
+        if self.features is not None:
+            x = nn.Dense(self.features, kernel_init=self.initializer)(x)
+            if self.layer_norm:
+                x = nn.LayerNorm()(x)
+            x = nn.relu(x)
 
         return nn.Dense(self.n_actions, kernel_init=self.initializer)(x)
 
 
 def make_heads(n_heads):
-    # params for Bellman iterations mapped to last axis, outputs for Bellman iterations are stacked in 2nd last axis (last axis is for actions)
+    # the axis for the Bellman iterations in params should be 0 -> variable_axes={"params": 0}
+    # the entire input should be vmapped -> in_axes=None
+    # the Bellman iterations should be place after the batch axis and before the action axis -> out_axes=-2
     return nn.vmap(
-        Head, variable_axes={"params": -1}, split_rngs={"params": True}, in_axes=None, out_axes=-2, axis_size=n_heads
+        Head, variable_axes={"params": 0}, split_rngs={"params": True}, in_axes=None, out_axes=-2, axis_size=n_heads
     )
 
 
@@ -106,39 +109,39 @@ class DQNNet(nn.Module):
             x = nn.relu(x)
 
         if self.n_heads == 1:
-            if self.linear_heads:
-                q_vals = nn.Dense(self.n_actions, kernel_init=initializer, name="q_heads")(x)
-            else:
-                q_vals = Head(self.features[-1], self.n_actions, initializer, self.layer_norm, name="q_heads")(x)
+            q_vals = Head(
+                None if self.linear_heads else self.features[-1],
+                self.n_actions,
+                initializer,
+                self.layer_norm,
+                name="q_heads",
+            )(x)
         else:
-            if self.linear_heads:
-                q_vals = nn.Dense(self.n_heads * self.n_actions, kernel_init=initializer, name="q_heads")(x).reshape(
-                    (-1, self.n_heads, self.n_actions)
-                )
-                q_vals = jnp.squeeze(q_vals)
-            else:
-                q_vals = make_heads(self.n_heads)(
-                    self.features[-1], self.n_actions, initializer, self.layer_norm, name="q_heads"
-                )(x)
+            q_vals = make_heads(self.n_heads)(
+                None if self.linear_heads else self.features[-1],
+                self.n_actions,
+                initializer,
+                self.layer_norm,
+                name="q_heads",
+            )(x)
 
         if self.n_h_heads == 0:
             return q_vals
         elif self.n_h_heads == 1:
-            if self.linear_heads:
-                h_vals = nn.Dense(self.n_actions, kernel_init=initializer, name="h_heads")(jax.lax.stop_gradient(x))
-            else:
-                h_vals = Head(self.features[-1], self.n_actions, initializer, self.layer_norm, name="h_heads")(
-                    jax.lax.stop_gradient(x)
-                )
+            h_vals = Head(
+                None if self.linear_heads else self.features[-1],
+                self.n_actions,
+                initializer,
+                self.layer_norm,
+                name="h_heads",
+            )(jax.lax.stop_gradient(x))
             return q_vals, h_vals
         else:
-            if self.linear_heads:
-                h_vals = nn.Dense(self.n_h_heads * self.n_actions, kernel_init=initializer, name="h_heads")(
-                    jax.lax.stop_gradient(x)
-                ).reshape((-1, self.n_h_heads, self.n_actions))
-                h_vals = jnp.squeeze(h_vals)
-            else:
-                h_vals = make_heads(self.n_h_heads)(
-                    self.features[-1], self.n_actions, initializer, self.layer_norm, name="h_heads"
-                )(jax.lax.stop_gradient(x))
+            h_vals = make_heads(self.n_h_heads)(
+                None if self.linear_heads else self.features[-1],
+                self.n_actions,
+                initializer,
+                self.layer_norm,
+                name="h_heads",
+            )(jax.lax.stop_gradient(x))
             return q_vals, h_vals
