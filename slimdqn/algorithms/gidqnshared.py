@@ -10,20 +10,9 @@ from slimdqn.algorithms.architectures.dqn import DQNNet
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 
-@partial(jax.jit, static_argnames="n_actions")
-def set_target_params(params, n_actions):
-    return optax.tree_utils.tree_set(
-        params,
-        q_heads=jax.tree_util.tree_map_with_path(
-            lambda path, leaf: (
-                leaf[..., :n_actions]
-                if (path[-1].key == "kernel" and leaf.ndim == 2) or (path[-1].key == "bias" and leaf.ndim == 1)
-                else leaf[..., 0]
-            ),
-            params["params"]["q_heads"],
-        ),
-        h_heads=None,
-    )
+@jax.jit
+def set_target_params(params):
+    return optax.tree_utils.tree_set(params, q_heads=jax.tree.map(lambda p: p[0], params["params"]["q_heads"]))
 
 
 @jax.jit
