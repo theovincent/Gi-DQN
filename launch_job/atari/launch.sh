@@ -1,5 +1,5 @@
 SHARED_ARGS="--features 32 64 64 512 --replay_buffer_capacity 1_000_000 --batch_size 32 --update_horizon 1 --gamma 0.99 \
-    --horizon 27_000 --n_epochs 200 --n_training_steps_per_epoch 250_000 --update_to_data 0.25 --n_initial_samples 20_000 \
+    --horizon 27_000 --n_epochs 100 --n_training_steps_per_epoch 250_000 --update_to_data 0.25 --n_initial_samples 20_000 \
     --epsilon_end 0.01 --epsilon_duration 250_000 --learning_rate 6.25e-5"
 
 GAME="Breakout"
