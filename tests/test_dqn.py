@@ -3,7 +3,7 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 
-from slimdqn.networks.dqn import DQN
+from slimdqn.algorithms.dqn import DQN
 from tests.utils import Generator
 
 
@@ -27,6 +27,8 @@ class TestDQN(unittest.TestCase):
                 jax.random.randint(key_feature_4, (), minval=1, maxval=10),
             ],
             "impala",
+            True,
+            False,
             0.001,
             0.94,
             1,

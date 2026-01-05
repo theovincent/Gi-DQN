@@ -7,9 +7,9 @@ import numpy as np
 from experiments.base.dqn import train
 from experiments.base.utils import prepare_logs
 from slimdqn.environments.atari import AtariEnv
-from slimdqn.networks.dqn import DQN
+from slimdqn.algorithms.dqn import DQN
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer
-from slimdqn.sample_collection.samplers import UniformSamplingDistribution
+from slimdqn.sample_collection.samplers import Uniform
 
 
 def run(argvs=sys.argv[1:]):
@@ -20,14 +20,13 @@ def run(argvs=sys.argv[1:]):
 
     env = AtariEnv(p["experiment_name"].split("_")[-1])
     rb = ReplayBuffer(
-        sampling_distribution=UniformSamplingDistribution(p["seed"]),
-        max_capacity=p["replay_buffer_capacity"],
+        sampling_distribution=Uniform(p["seed"]),
         batch_size=p["batch_size"],
+        max_capacity=p["replay_buffer_capacity"],
         update_horizon=p["update_horizon"],
         gamma=p["gamma"],
         clipping=lambda x: np.clip(x, -1, 1),
         stack_size=4,
-        compress=True,
     )
     agent = DQN(
         q_key,
@@ -35,11 +34,13 @@ def run(argvs=sys.argv[1:]):
         env.n_actions,
         features=p["features"],
         architecture_type=p["architecture_type"],
+        layer_norm=p["layer_norm"],
+        gap=p["gap"],
         learning_rate=p["learning_rate"],
         gamma=p["gamma"],
         update_horizon=p["update_horizon"],
         update_to_data=p["update_to_data"],
-        target_update_frequency=p["target_update_frequency"],
+        target_update_period=p["target_update_period"],
         adam_eps=1.5e-4,
     )
     train(train_key, p, agent, env, rb)

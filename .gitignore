@@ -168,5 +168,7 @@ wandb/
 
 **.json
 **.npy
+**.pdf 
+**.png
 experiments/**/exp_output/*
 experiments/**/logs/*

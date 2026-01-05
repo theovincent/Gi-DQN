@@ -156,11 +156,24 @@ def add_base_arguments(parser: argparse.ArgumentParser):
         default=1_000,
     )
     parser.add_argument(
-        "-tuf",
-        "--target_update_frequency",
+        "-tup",
+        "--target_update_period",
         help="Number of training steps before updating the target Q-network.",
         type=int,
         default=200,
+    )
+    parser.add_argument(
+        "-ln",
+        "--layer_norm",
+        help="Whether to use layer normalization.",
+        default=False,
+        action="store_true",
+    )
+    parser.add_argument(
+        "--gap",
+        help="Whether to use Global Average Pruning.",
+        default=False,
+        action="store_true",
     )
 
 
@@ -180,45 +193,26 @@ def add_weight_decay(parser: argparse.ArgumentParser):
         "--weight_decay",
         help="Weighting of the regularization in weight decay.",
         type=float,
-        default=0.001,
+        default=1,
+    )
+
+
+def add_linear_heads(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "--linear_heads",
+        help="Whether to share only the last layer instead of the two last layers.",
+        default=False,
+        action="store_true",
     )
 
 
 def add_freeze_first_head(parser: argparse.ArgumentParser):
     parser.add_argument(
-        "--unfreeze_first_head",
+        "--freeze_first_head",
         help="Whether the first network should be fixed or not for the duration of a Bellman iteration",
         action="store_true",
         default=False,
     )
-
-
-def add_target_sync_frequency(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "-tsf",
-        "--target_sync_frequency",
-        help="Number of training steps before updating each target Q-network to its corresponding online Q-network. (D)",
-        type=int,
-        default=10,
-    )
-
-
-@output_added_arguments
-def add_gidqn_arguments(parser: argparse.ArgumentParser):
-    add_n_bellman_iterations(parser)
-    add_weight_decay(parser)
-    add_freeze_first_head(parser)
-
-
-@output_added_arguments
-def add_fidqn_arguments(parser: argparse.ArgumentParser):
-    add_n_bellman_iterations(parser)
-
-
-@output_added_arguments
-def add_idqn_arguments(parser: argparse.ArgumentParser):
-    add_n_bellman_iterations(parser)
-    add_target_sync_frequency(parser)
 
 
 @output_added_arguments
@@ -229,3 +223,35 @@ def add_dqn_arguments(parser: argparse.ArgumentParser):
 @output_added_arguments
 def add_dqnrc_arguments(parser: argparse.ArgumentParser):
     add_weight_decay(parser)
+
+
+@output_added_arguments
+def add_dqnrcshared_arguments(parser: argparse.ArgumentParser):
+    add_weight_decay(parser)
+    add_linear_heads(parser)
+
+
+@output_added_arguments
+def add_idqn_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+
+
+@output_added_arguments
+def add_idqnshared_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_linear_heads(parser)
+
+
+@output_added_arguments
+def add_gidqn_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_weight_decay(parser)
+    add_freeze_first_head(parser)
+
+
+@output_added_arguments
+def add_gidqnshared_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_weight_decay(parser)
+    add_freeze_first_head(parser)
+    add_linear_heads(parser)

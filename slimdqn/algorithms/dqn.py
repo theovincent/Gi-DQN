@@ -2,11 +2,10 @@ from functools import partial
 
 import jax
 import jax.numpy as jnp
-import numpy as np
 import optax
 from flax.core import FrozenDict
 
-from slimdqn.networks.architectures.dqn import DQNNet
+from slimdqn.algorithms.architectures.dqn import DQNNet
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 
@@ -18,30 +17,35 @@ class DQN:
         n_actions,
         features: list,
         architecture_type: str,
+        layer_norm: bool,
+        gap: bool,
         learning_rate: float,
         gamma: float,
         update_horizon: int,
         update_to_data: int,
-        target_update_frequency: int,
+        target_update_period: int,
         adam_eps: float = 1e-8,
     ):
-        self.network = DQNNet(features, architecture_type, n_actions)
+        self.network = DQNNet(features, architecture_type, layer_norm, gap, False, n_actions, n_heads=1, n_h_heads=0)
         self.params = self.network.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
         self.optimizer_state = self.optimizer.init(self.params)
-        self.target_params = self.params
+        self.target_params = self.params.copy()
 
         self.gamma = gamma
         self.update_horizon = update_horizon
         self.update_to_data = update_to_data
-        self.target_update_frequency = target_update_frequency
+        self.target_update_period = target_update_period
         self.cumulative_loss = 0
         self.cumulative_variance = 0
 
     def update_online_params(self, step: int, replay_buffer: ReplayBuffer):
-        if step % self.update_to_data == 0:
-            batch_samples = replay_buffer.sample()
+        for _ in range(int(max(self.update_to_data, 1))):
+            # if update_to_data < 1, only perform one update if step = 0 [1 / self.update_to_data]
+            if self.update_to_data < 1 and step % (1 / self.update_to_data) != 0:
+                return None
+            batch_samples, _ = replay_buffer.sample()
 
             self.params, self.optimizer_state, loss, variance = self.learn_on_batch(
                 self.params, self.target_params, self.optimizer_state, batch_samples
@@ -50,12 +54,12 @@ class DQN:
             self.cumulative_variance += variance
 
     def update_target_params(self, step: int):
-        if step % self.target_update_frequency == 0:
+        if step % self.target_update_period == 0:
             self.target_params = self.params.copy()
 
             logs = {
-                "loss": self.cumulative_loss / (self.target_update_frequency / self.update_to_data),
-                "variance": self.cumulative_variance / (self.target_update_frequency / self.update_to_data),
+                "loss": self.cumulative_loss / (self.target_update_period * self.update_to_data),
+                "variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
             }
             self.cumulative_loss = 0
             self.cumulative_variance = 0
@@ -96,7 +100,7 @@ class DQN:
         )
 
     @partial(jax.jit, static_argnames="self")
-    def best_action(self, params: FrozenDict, state: jnp.ndarray, key=None):
+    def best_action(self, params: FrozenDict, state: jnp.ndarray):
         # computes the best action for a single state
         return jnp.argmax(self.network.apply(params, state))
 

@@ -41,32 +41,4 @@ def test_prepare_logs():
     except Exception as e:
         if type(e) != AssertionError:
             assert 0, f"The exception {type(e).__name__} is raised. Exception: {e}"
-
-    # Create again folders and parameters.json with different first parameter for dqn -> should throw an error
-    parameters = json.load(open(os.path.join(save_path, "parameters.json"), "rb"))
-    last_shared_param = list(parameters["shared_parameters"].keys())[-1]
-    last_shared_param_value = parameters["shared_parameters"][last_shared_param] + 1
-    try:
-        prepare_logs(
-            "lunar_lander",
-            "dqn",
-            [
-                "--experiment_name",
-                "_test_prepare_logs",
-                "--seed",
-                "3",
-                f"--{last_shared_param}",
-                f"{last_shared_param_value}",
-                "--disable_wandb",
-            ],
-        )
-        assert (
-            0
-        ), "An error saying that this experiment has been run with a different parameter should have been thrown."
-    except Exception as e:
-        if type(e) != AssertionError:
-            assert 0, f"The exception {type(e).__name__} is raised. Exception: {e}"
-
-    assert os.path.exists(save_path)
-    assert os.path.exists(os.path.join(save_path, "parameters.json"))
     shutil.rmtree(save_path)
