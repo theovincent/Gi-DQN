@@ -63,7 +63,7 @@ class GiDQNShared:
         # initialize 1 network with K q-heads and K OR K-1 h-heads
         self.params = self.online_networks.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
         # initialize the target networks
-        self.target_params = set_target_params(self.params, self.n_actions)
+        self.target_params = set_target_params(self.params)
 
         self.optimizer = optax.adamw(
             learning_rate,
