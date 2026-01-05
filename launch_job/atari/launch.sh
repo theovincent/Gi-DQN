@@ -13,12 +13,8 @@ GAP=0 # 0 1
 LINEAR_HEADS=0 # 0 1
 DISABLE_WANDB=0 # 0 1
 
-PLATFORM="local/local"  # nhrfau/cluster normal/cluster normal/local
+PLATFORM="cluster/cluster"  # cluster/cluster local/local
 
-if [ $PLATFORM == "local/local" ]
-then
-    SHARED_ARGS="$SHARED_ARGS --tmux_name slimdqn"
-fi
 if [ $GAP == 1 ]
 then
     SHARED_ARGS="$SHARED_ARGS --gap"
@@ -36,7 +32,7 @@ SHARED_ARGS="$SHARED_ARGS --target_update_period $TARGET_UPDATE_PERIOD --archite
 SHARED_NAME="LN${LAYER_NORM}_${ARCHITECTURE_TYPE}_T${TARGET_UPDATE_PERIOD}"
 
 DQN_ARGS="--experiment_name L2_${SHARED_NAME}_${GAME}"
-#launch_job/atari/${PLATFORM}_dqn.sh --first_seed 1 --last_seed 2 --n_parallel_seeds 1 $SHARED_ARGS $DQN_ARGS
+# launch_job/atari/${PLATFORM}_dqn.sh --first_seed 1 --last_seed 2 --n_parallel_seeds 1 $SHARED_ARGS $DQN_ARGS
 
 DQNRC_ARGS="--experiment_name L2_WD${WEIGHT_DECAY}_${SHARED_NAME}_${GAME} --weight_decay $WEIGHT_DECAY"
 # launch_job/atari/${PLATFORM}_dqnrc.sh --first_seed 1 --last_seed 2 --n_parallel_seeds 1 $SHARED_ARGS $DQNRC_ARGS
@@ -44,12 +40,16 @@ DQNRC_ARGS="--experiment_name L2_WD${WEIGHT_DECAY}_${SHARED_NAME}_${GAME} --weig
 IDQN_ARGS="--experiment_name L2_K${N_BELLMAN_ITERATIONS}_${SHARED_NAME}_${GAME} --n_bellman_iterations $N_BELLMAN_ITERATIONS"
 # launch_job/atari/${PLATFORM}_idqn.sh --first_seed 1 --last_seed 2 --n_parallel_seeds 1 $SHARED_ARGS $IDQN_ARGS
 
-GIDQN_ARGS="--experiment_name L2_K${N_BELLMAN_ITERATIONS}_WD${WEIGHT_DECAY}_${SHARED_NAME}_${GAME} --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY"
-if [ $FREEZE_FIRST_HEAD == 1 ]
-then
-    GIDQN_ARGS="$GIDQN_ARGS --freeze_first_head"
-fi
-# launch_job/atari/${PLATFORM}_gidqn.sh --first_seed 1 --last_seed 2 --n_parallel_seeds 1 $SHARED_ARGS $GIDQN_ARGS
+GIDQN_ARGS="--n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY"
+# if [ $FREEZE_FIRST_HEAD == 1 ]
+# then
+    # launch_job/atari/${PLATFORM}_gidqn.sh --first_seed 1 --last_seed 2 --n_parallel_seeds 1 $SHARED_ARGS $GIDQN_ARGS --freeze_first_head \
+    # --experiment_name L2_K${N_BELLMAN_ITERATIONS}_WD${WEIGHT_DECAY}_${SHARED_NAME}_${GAME}
+# else
+    # launch_job/atari/${PLATFORM}_gidqn.sh --first_seed 1 --last_seed 2 --n_parallel_seeds 1 $SHARED_ARGS $GIDQN_ARGS \
+    # --experiment_name L2_K${N_BELLMAN_ITERATIONS}_WD${WEIGHT_DECAY}_${SHARED_NAME}_UNFROZEN_${GAME}
+# fi
+
 
 # ------- Shared Architectures ----------
 if [ $LINEAR_HEADS == 1 ]
@@ -57,15 +57,18 @@ then
     SHARED_ARGS="$SHARED_ARGS --linear_heads"
     SHARED_NAME="${SHARED_NAME}_LINEAR"
 fi
-DQNRC_SHARED_ARGS="--experiment_name L2_WD${WEIGHT_DECAY}_${SHARED_NAME}_${GAME} --weight_decay $WEIGHT_DECAY"
-#launch_job/atari/${PLATFORM}_dqnrcshared.sh --first_seed 1 --last_seed 2 --n_parallel_seeds 1 $SHARED_ARGS $DQNRC_SHARED_ARGS
+DQNRCSHARED_ARGS="--experiment_name L2_WD${WEIGHT_DECAY}_${SHARED_NAME}_${GAME} --weight_decay $WEIGHT_DECAY"
+# launch_job/atari/${PLATFORM}_dqnrcshared.sh --first_seed 1 --last_seed 2 --n_parallel_seeds 1 $SHARED_ARGS $DQNRCSHARED_ARGS
 
-IDQN_SHARED_ARGS="--experiment_name L2_K${N_BELLMAN_ITERATIONS}_${SHARED_NAME}_${GAME} --n_bellman_iterations $N_BELLMAN_ITERATIONS"
-launch_job/atari/${PLATFORM}_idqnshared.sh --first_seed 1 --last_seed 2 --n_parallel_seeds 2 $SHARED_ARGS $IDQN_SHARED_ARGS
+IDQNSHARED_ARGS="--experiment_name L2_K${N_BELLMAN_ITERATIONS}_${SHARED_NAME}_${GAME} --n_bellman_iterations $N_BELLMAN_ITERATIONS"
+launch_job/atari/${PLATFORM}_idqnshared.sh --first_seed 1 --last_seed 2 --n_parallel_seeds 2 $SHARED_ARGS $IDQNSHARED_ARGS
 
-GIDQN_SHARED_ARGS="--experiment_name L2_K${N_BELLMAN_ITERATIONS}_WD${WEIGHT_DECAY}_${SHARED_NAME}_${GAME} --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY"
-if [ $FREEZE_FIRST_HEAD == 1 ]
-then
-    GIDQN_SHARED_ARGS="$GIDQN_SHARED_ARGS --freeze_first_head"
-fi
-#launch_job/atari/${PLATFORM}_gidqnshared.sh --first_seed 1 --last_seed 2 --n_parallel_seeds 1 $SHARED_ARGS $GIDQN_SHARED_ARGS
+GIDQNSHARED_ARGS="--experiment_name L2_K${N_BELLMAN_ITERATIONS}_WD${WEIGHT_DECAY}_${SHARED_NAME}_${GAME} --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY"
+# if [ $FREEZE_FIRST_HEAD == 1 ]
+# then
+    # launch_job/atari/${PLATFORM}_gidqnshared.sh --first_seed 1 --last_seed 2 --n_parallel_seeds 1 $SHARED_ARGS $GIDQNSHARED_ARGS --freeze_first_head \
+    # --experiment_name L2_K${N_BELLMAN_ITERATIONS}_WD${WEIGHT_DECAY}_${SHARED_NAME}_${GAME}
+# else
+    # launch_job/atari/${PLATFORM}_gidqnshared.sh --first_seed 1 --last_seed 2 --n_parallel_seeds 1 $SHARED_ARGS $GIDQNSHARED_ARGS \
+    # --experiment_name L2_K${N_BELLMAN_ITERATIONS}_WD${WEIGHT_DECAY}_${SHARED_NAME}_UNFROZEN_${GAME}
+# fi
