@@ -88,7 +88,7 @@ class iDQNShared:
     def update_target_params(self, step: int):
         # update target network parameters every target_update_period steps. This starts the next Bellman iteration
         if step % self.target_update_period == 0:
-            self.target_params = set_target_params(self.params, self.n_actions)
+            self.target_params = set_target_params(self.params)
             # Window shift
             self.params = shift_params(self.params)
 

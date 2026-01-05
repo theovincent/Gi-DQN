@@ -158,7 +158,8 @@ class GiDQN:
 
         target_loss = targets[int(self.freeze_first_head) :] * jax.lax.stop_gradient(h_values)
         if self.freeze_first_head:
-            target_loss = jnp.append(jnp.zeros(0), target_loss)
+            h_loss = jnp.append(jnp.zeros(1), h_loss)
+            target_loss = jnp.append(jnp.zeros(1), target_loss)
 
         td_loss = target_loss - q_values * jax.lax.stop_gradient(td_errors)
 
