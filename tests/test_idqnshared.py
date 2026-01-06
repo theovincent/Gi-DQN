@@ -7,7 +7,7 @@ from slimdqn.algorithms.idqnshared import iDQNShared, set_target_params, shift_p
 from tests.utils import Generator
 
 
-class TestDQN(unittest.TestCase):
+class TestiDQNShared(unittest.TestCase):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.random_seed = np.random.randint(1000)

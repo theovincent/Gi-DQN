@@ -3,11 +3,11 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 
-from slimdqn.algorithms.idqnshared import iDQNShared, set_target_params, shift_params
+from slimdqn.algorithms.dqnrcshared import DQNRCShared
 from tests.utils import Generator
 
 
-class TestiDQNSharedLinear(unittest.TestCase):
+class TestDQNRCSharedLinear(unittest.TestCase):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.random_seed = np.random.randint(1000)
@@ -16,11 +16,10 @@ class TestiDQNSharedLinear(unittest.TestCase):
         key_actions, key_feature_1, key_feature_2, key_feature_3, key_feature_4 = jax.random.split(self.key, 5)
         self.observation_dim = (84, 84, 4)
         self.n_actions = int(jax.random.randint(key_actions, (), minval=2, maxval=10))
-        self.q = iDQNShared(
+        self.q = DQNRCShared(
             self.key,
             self.observation_dim,
             self.n_actions,
-            5,
             [
                 jax.random.randint(key_feature_1, (), minval=1, maxval=10),
                 jax.random.randint(key_feature_2, (), minval=1, maxval=10),
@@ -36,6 +35,7 @@ class TestiDQNSharedLinear(unittest.TestCase):
             1,
             1,
             1,
+            1,
         )
 
         self.generator = Generator(None, self.observation_dim, self.n_actions)
@@ -44,18 +44,15 @@ class TestiDQNSharedLinear(unittest.TestCase):
         print(f"-------------- Random key {self.random_seed} --------------")
         sample = self.generator.sample(self.key)
 
-        computed_loss = self.q.loss(self.q.params, self.q.target_params, sample)[0].sum()
+        computed_loss = self.q.loss(self.q.params, sample)[0]
 
-        first_next_q_values = self.q.root_network.apply(self.q.target_params, sample.next_state)
-        next_q_values = self.q.online_networks.apply(self.q.params, sample.next_state)
-        targets = self.q.compute_target(
-            jnp.concatenate([first_next_q_values[None], next_q_values[:-1]], axis=0), sample
-        )
-        predictions = self.q.online_networks.apply(self.q.params, sample.state)[:, sample.action]
+        target = self.q.compute_target(self.q.params, sample)
+        q_predictions, h_predictions = self.q.network.apply(self.q.params, sample.state)
+        q_prediction, h_prediction = q_predictions[sample.action], h_predictions[sample.action]
+        td_loss = target * h_prediction - q_prediction * (target - q_prediction)
+        h_loss = -h_prediction * (target - q_prediction - h_prediction)
 
-        loss = np.square(targets - predictions).sum()
-
-        self.assertAlmostEqual(loss, computed_loss, places=4)
+        self.assertEqual(td_loss + h_loss, computed_loss)
 
     def test_best_action(self):
         print(f"-------------- Random key {self.random_seed} --------------")
@@ -63,24 +60,8 @@ class TestiDQNSharedLinear(unittest.TestCase):
 
         computed_best_action = self.q.best_action(self.q.params, state)
 
-        q_values = self.q.online_networks.apply(self.q.params, state).mean(axis=0)
+        q_values = self.q.network.apply(self.q.params, state)[0]
         best_action = jnp.argmax(q_values)
 
         self.assertEqual(q_values.shape, (self.n_actions,))
         self.assertEqual(best_action, computed_best_action)
-
-    def test_target_update(self):
-        print(f"-------------- Random key {self.random_seed} --------------")
-        state = self.generator.state(self.key)
-
-        first_q_values = self.q.online_networks.apply(self.q.params, state)[0]
-        target_params = set_target_params(self.q.params)
-        target_q_values = self.q.root_network.apply(target_params, state)
-
-        self.assertEqual(np.linalg.norm(first_q_values - target_q_values), 0)
-
-        q_values = self.q.online_networks.apply(self.q.params, state)
-        shifted_params = shift_params(self.q.params)
-        shifted_q_values = self.q.online_networks.apply(shifted_params, state)
-
-        self.assertEqual(np.linalg.norm(shifted_q_values[:-1] - q_values[1:]), 0)
