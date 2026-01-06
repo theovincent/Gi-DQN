@@ -2,7 +2,7 @@ SHARED_ARGS="--features 32 64 64 512 --replay_buffer_capacity 1_000_000 --batch_
     --horizon 27_000 --n_epochs 100 --n_training_steps_per_epoch 250_000 --update_to_data 0.25 --n_initial_samples 20_000 \
     --epsilon_end 0.01 --epsilon_duration 250_000 --learning_rate 6.25e-5"
 
-GAME="Breakout"
+GAME="Asterix"
 N_BELLMAN_ITERATIONS=5  # 1 3 5 10
 LAYER_NORM=0  # 0 1
 ARCHITECTURE_TYPE="cnn"  # cnn impala
@@ -32,7 +32,7 @@ SHARED_ARGS="$SHARED_ARGS --target_update_period $TARGET_UPDATE_PERIOD --archite
 SHARED_NAME="LN${LAYER_NORM}_${ARCHITECTURE_TYPE}_T${TARGET_UPDATE_PERIOD}"
 
 DQN_ARGS="--experiment_name L2_${SHARED_NAME}_${GAME}"
-# launch_job/atari/${PLATFORM}_dqn.sh --first_seed 1 --last_seed 2 --n_parallel_seeds 1 $SHARED_ARGS $DQN_ARGS
+# launch_job/atari/${PLATFORM}_dqn.sh --first_seed 1 --last_seed 2 --n_parallel_seeds 2 $SHARED_ARGS $DQN_ARGS
 
 DQNRC_ARGS="--experiment_name L2_WD${WEIGHT_DECAY}_${SHARED_NAME}_${GAME} --weight_decay $WEIGHT_DECAY"
 # launch_job/atari/${PLATFORM}_dqnrc.sh --first_seed 1 --last_seed 2 --n_parallel_seeds 1 $SHARED_ARGS $DQNRC_ARGS
