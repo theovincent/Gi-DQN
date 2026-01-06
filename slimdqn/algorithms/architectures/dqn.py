@@ -50,9 +50,9 @@ class Head(nn.Module):
 def make_heads(n_heads):
     # the axis for the Bellman iterations in params should be 0 -> variable_axes={"params": 0}
     # the entire input should be vmapped -> in_axes=None
-    # the Bellman iterations should be place after the batch axis and before the action axis -> out_axes=-2
+    # the Bellman iterations are before the action axis -> out_axes=0
     return nn.vmap(
-        Head, variable_axes={"params": 0}, split_rngs={"params": True}, in_axes=None, out_axes=-2, axis_size=n_heads
+        Head, variable_axes={"params": 0}, split_rngs={"params": True}, in_axes=None, out_axes=0, axis_size=n_heads
     )
 
 
