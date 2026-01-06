@@ -128,7 +128,7 @@ class iDQNShared:
         next_q_values_remaining_targets = self.online_networks.apply(params, sample.next_state)[:-1]
         next_q_values = jnp.concatenate([next_q_values_first_target[None, :], next_q_values_remaining_targets], axis=0)
         targets = self.compute_target(next_q_values, sample)
-        td_errors = targets - q_values
+        td_errors = jax.lax.stop_gradient(targets) - q_values
 
         return jnp.square(td_errors), targets**2 - targets * q_values
 
