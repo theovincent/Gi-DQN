@@ -3,11 +3,11 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 
-from slimdqn.algorithms.idqn import iDQN, shift_params
+from slimdqn.algorithms.gidqn import GiDQN, shift_params
 from tests.utils import Generator
 
 
-class TestiDQN(unittest.TestCase):
+class TestGiDQN(unittest.TestCase):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.random_seed = np.random.randint(1000)
@@ -16,7 +16,7 @@ class TestiDQN(unittest.TestCase):
         key_actions, key_feature_1, key_feature_2, key_feature_3, key_feature_4 = jax.random.split(self.key, 5)
         self.observation_dim = (84, 84, 4)
         self.n_actions = int(jax.random.randint(key_actions, (), minval=2, maxval=10))
-        self.q = iDQN(
+        self.q = GiDQN(
             self.key,
             self.observation_dim,
             self.n_actions,
@@ -34,6 +34,8 @@ class TestiDQN(unittest.TestCase):
             0.94,
             1,
             1,
+            True,
+            1,
             1,
         )
 
@@ -43,13 +45,19 @@ class TestiDQN(unittest.TestCase):
         print(f"-------------- Random key {self.random_seed} --------------")
         sample = self.generator.sample(self.key)
 
-        computed_loss = self.q.loss(self.q.params, sample)[0].sum()
+        computed_loss = self.q.loss(self.q.params, self.q.h_params, sample)[0].sum()
 
         targets = jax.vmap(self.q.compute_target, in_axes=(0, None))(self.q.params, sample)[:-1]
-        predictions = jax.vmap(self.q.network.apply, in_axes=(0, None))(self.q.params, sample.state)[1:, sample.action]
-        loss = np.square(targets - predictions).sum()
+        q_predictions = jax.vmap(self.q.network.apply, in_axes=(0, None))(self.q.params, sample.state)[
+            1:, sample.action
+        ]
+        h_predictions = jax.vmap(self.q.network.apply, in_axes=(0, None))(self.q.h_params, sample.state)[
+            :, sample.action
+        ]
+        td_loss = (targets[1:] * h_predictions).sum() - (q_predictions * (targets - q_predictions)).sum()
+        h_loss = -(h_predictions * (targets[1:] - q_predictions[1:] - h_predictions)).sum()
 
-        self.assertAlmostEqual(loss, computed_loss, places=4)
+        self.assertAlmostEqual(td_loss + h_loss, computed_loss, places=4)
 
     def test_best_action(self):
         print(f"-------------- Random key {self.random_seed} --------------")

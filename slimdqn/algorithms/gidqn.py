@@ -45,7 +45,7 @@ class GiDQN:
             jax.random.split(key_params, self.n_bellman_iterations + 1), jnp.zeros(observation_dim, dtype=jnp.float32)
         )
         # initialize K - 1 TD-error estimator networks OR K TD-error estimator networks if the first head is not frozen
-        self.hparams = jax.vmap(self.network.init, in_axes=(0, None))(
+        self.h_params = jax.vmap(self.network.init, in_axes=(0, None))(
             jax.random.split(key_h_params, self.n_bellman_iterations - int(freeze_first_head)),
             jnp.zeros(observation_dim, dtype=jnp.float32),
         )
@@ -59,7 +59,7 @@ class GiDQN:
         )
 
         self.optimizer_state = self.optimizer.init(self.params)
-        self.h_optimizer_state = self.h_optimizer.init(self.hparams)
+        self.h_optimizer_state = self.h_optimizer.init(self.h_params)
 
         self.gamma = gamma
         self.update_horizon = update_horizon
@@ -77,9 +77,9 @@ class GiDQN:
                 return None
             batch_samples, _ = replay_buffer.sample()
 
-            self.params, self.hparams, self.optimizer_state, self.h_optimizer_state, q_losses, h_losses, variance = (
+            self.params, self.h_params, self.optimizer_state, self.h_optimizer_state, q_losses, h_losses, variance = (
                 self.learn_on_batch(
-                    self.params, self.hparams, self.optimizer_state, self.h_optimizer_state, batch_samples
+                    self.params, self.h_params, self.optimizer_state, self.h_optimizer_state, batch_samples
                 )
             )
 
@@ -91,7 +91,7 @@ class GiDQN:
         # shift the network parameters every `target_update_period` steps. This starts the next Bellman iteration
         if step % self.target_update_period == 0:
             self.params = shift_params(self.params)
-            self.hparams = shift_params(self.hparams)
+            self.h_params = shift_params(self.h_params)
 
             logs = {
                 "loss": np.mean(self.cumulative_q_losses) / (self.target_update_period * self.update_to_data),
@@ -115,31 +115,31 @@ class GiDQN:
 
     @partial(jax.jit, static_argnames="self")
     def learn_on_batch(
-        self, params: FrozenDict, hparams: FrozenDict, optimizer_state, h_optimizer_state, batch_samples
+        self, params: FrozenDict, h_params: FrozenDict, optimizer_state, h_optimizer_state, batch_samples
     ):
         (grad_loss, h_grad_loss), (q_losses, h_losses, variance) = jax.grad(
             self.loss_on_batch, has_aux=True, argnums=(0, 1)
-        )(params, hparams, batch_samples)
+        )(params, h_params, batch_samples)
 
         updates, optimizer_state = self.optimizer.update(grad_loss, optimizer_state, params)
-        h_updates, h_optimizer_state = self.h_optimizer.update(h_grad_loss, h_optimizer_state, hparams)
+        h_updates, h_optimizer_state = self.h_optimizer.update(h_grad_loss, h_optimizer_state, h_params)
 
         params = optax.apply_updates(params, updates)
-        hparams = optax.apply_updates(hparams, h_updates)
+        h_params = optax.apply_updates(h_params, h_updates)
 
-        return params, hparams, optimizer_state, h_optimizer_state, q_losses, h_losses, variance
+        return params, h_params, optimizer_state, h_optimizer_state, q_losses, h_losses, variance
 
-    def loss_on_batch(self, params: FrozenDict, hparams: FrozenDict, samples):
+    def loss_on_batch(self, params: FrozenDict, h_params: FrozenDict, samples):
         # vmap to compute the loss for all samples (batch_size, K)
         total_losses, q_losses, h_losses, variances = jax.vmap(self.loss, in_axes=(None, None, 0))(
-            params, hparams, samples
+            params, h_params, samples
         )
         return total_losses.mean(axis=0).sum(), (q_losses.mean(axis=0), h_losses.mean(axis=0), variances.mean())
 
     def loss(
         self,
         params: FrozenDict,
-        hparams: FrozenDict,
+        h_params: FrozenDict,
         sample: ReplayElement,
     ):
         # computes the loss for a single sample
@@ -153,7 +153,7 @@ class GiDQN:
         td_errors = targets - q_values
 
         # (K - 1) if freeze_first_head is True OR (K)
-        h_values = jax.vmap(self.network.apply, in_axes=(0, None))(hparams, sample.state)[:, sample.action]
+        h_values = jax.vmap(self.network.apply, in_axes=(0, None))(h_params, sample.state)[:, sample.action]
         h_loss = h_values * jax.lax.stop_gradient(h_values - td_errors[int(self.freeze_first_head) :])
 
         target_loss = targets[int(self.freeze_first_head) :] * jax.lax.stop_gradient(h_values)
@@ -183,4 +183,4 @@ class GiDQN:
         return jnp.argmax(jnp.mean(q_predictions, axis=0))
 
     def get_model(self):
-        return {"params": self.params, "td_estimator_params": self.hparams}
+        return {"params": self.params, "td_estimator_params": self.h_params}
