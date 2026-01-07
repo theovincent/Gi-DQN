@@ -38,11 +38,7 @@ class DQNRC:
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
         # regularize the TD-error estimator network
-        self.h_optimizer = optax.adamw(
-            learning_rate,
-            eps=adam_eps,
-            weight_decay=weight_decay,
-        )
+        self.h_optimizer = optax.adamw(learning_rate, eps=adam_eps, weight_decay=weight_decay)
 
         self.optimizer_state = self.optimizer.init(self.params)
         self.h_optimizer_state = self.h_optimizer.init(self.h_params)
