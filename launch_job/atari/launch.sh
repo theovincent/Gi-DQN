@@ -3,8 +3,8 @@ SHARED_ARGS="--features 32 64 64 512 --replay_buffer_capacity 1_000_000 --batch_
     --epsilon_end 0.01 --epsilon_duration 250_000 --learning_rate 6.25e-5"
 
 GAME="CrazyClimber"
-N_BELLMAN_ITERATIONS=5  # 1 3 5 10
-UPDATE_TO_DATA=0.25  # 0.25 1
+N_BELLMAN_ITERATIONS=50  # 1 3 5 10
+UPDATE_TO_DATA=1  # 0.25 1
 LAYER_NORM=0  # 0 1
 ARCHITECTURE_TYPE="cnn"  # cnn impala
 WEIGHT_DECAY=1
