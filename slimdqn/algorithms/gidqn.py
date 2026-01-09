@@ -93,25 +93,25 @@ class GiDQN:
             self.params = shift_params(self.params)
             self.h_params = shift_params(self.h_params)
 
-            logs = {
+            self.logs = {
                 "loss": np.mean(self.cumulative_q_losses) / (self.target_update_period * self.update_to_data),
                 "variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
                 "h_loss": np.mean(self.cumulative_h_losses) / (self.target_update_period * self.update_to_data),
             }
             for idx_network in range(0, min(5, self.n_bellman_iterations)):
-                logs[f"networks/{idx_network}_loss"] = self.cumulative_q_losses[idx_network] / (
+                self.logs[f"networks/{idx_network}_loss"] = self.cumulative_q_losses[idx_network] / (
                     self.target_update_period * self.update_to_data
                 )
             for idx_network in range(min(5, self.n_bellman_iterations - int(self.freeze_first_head))):
-                logs[f"h_networks/{idx_network}_loss"] = self.cumulative_h_losses[idx_network] / (
+                self.logs[f"h_networks/{idx_network}_loss"] = self.cumulative_h_losses[idx_network] / (
                     self.target_update_period * self.update_to_data
                 )
 
             self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)
             self.cumulative_h_losses = np.zeros(self.n_bellman_iterations - int(self.freeze_first_head))
             self.cumulative_variance = 0
-            return True, logs
-        return False, {}
+            return True
+        return False
 
     @partial(jax.jit, static_argnames="self")
     def learn_on_batch(

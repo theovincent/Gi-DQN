@@ -71,7 +71,7 @@ class DQNRCShared:
     def update_target_params(self, step: int):
         # shift the network parameters every `target_update_period` steps. This starts the next Bellman iteration
         if step % self.target_update_period == 0:
-            logs = {
+            self.logs = {
                 "loss": self.cumulative_q_loss / (self.target_update_period * self.update_to_data),
                 "variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
                 "h_loss": self.cumulative_h_loss / (self.target_update_period * self.update_to_data),
@@ -80,8 +80,8 @@ class DQNRCShared:
             self.cumulative_q_loss = 0
             self.cumulative_h_loss = 0
             self.cumulative_variance = 0
-            return True, logs
-        return False, {}
+            return True
+        return False
 
     @partial(jax.jit, static_argnames="self")
     def learn_on_batch(self, params: FrozenDict, optimizer_state, batch_samples):

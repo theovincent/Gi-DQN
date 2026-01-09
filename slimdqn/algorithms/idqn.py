@@ -70,19 +70,19 @@ class iDQN:
         if step % self.target_update_period == 0:
             self.params = shift_params(self.params)
 
-            logs = {
+            self.logs = {
                 "loss": np.mean(self.cumulative_losses) / (self.target_update_period * self.update_to_data),
                 "variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
             }
             for idx_network in range(0, min(5, self.n_bellman_iterations)):
-                logs[f"networks/{idx_network}_loss"] = self.cumulative_losses[idx_network] / (
+                self.logs[f"networks/{idx_network}_loss"] = self.cumulative_losses[idx_network] / (
                     self.target_update_period * self.update_to_data
                 )
 
             self.cumulative_losses = np.zeros(self.n_bellman_iterations)
             self.cumulative_variance = 0
-            return True, logs
-        return False, {}
+            return True
+        return False
 
     @partial(jax.jit, static_argnames="self")
     def learn_on_batch(self, params: FrozenDict, optimizer_state, batch_samples):

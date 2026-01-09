@@ -57,15 +57,15 @@ class DQN:
         if step % self.target_update_period == 0:
             self.target_params = self.params.copy()
 
-            logs = {
+            self.logs = {
                 "loss": self.cumulative_loss / (self.target_update_period * self.update_to_data),
                 "variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
             }
             self.cumulative_loss = 0
             self.cumulative_variance = 0
 
-            return True, logs
-        return False, {}
+            return True
+        return False
 
     @partial(jax.jit, static_argnames="self")
     def learn_on_batch(
