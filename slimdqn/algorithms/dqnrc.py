@@ -72,6 +72,7 @@ class DQNRC:
         # shift the network parameters every `target_update_period` steps. This starts the next Bellman iteration
         if step % self.target_update_period == 0:
             self.logs = {
+                "n_training_steps": step,
                 "loss": self.cumulative_q_loss / (self.target_update_period * self.update_to_data),
                 "variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
                 "h_loss": self.cumulative_h_loss / (self.target_update_period * self.update_to_data),

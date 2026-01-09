@@ -58,6 +58,7 @@ class DQN:
             self.target_params = self.params.copy()
 
             self.logs = {
+                "n_training_steps": step,
                 "loss": self.cumulative_loss / (self.target_update_period * self.update_to_data),
                 "variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
             }

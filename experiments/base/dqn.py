@@ -41,7 +41,7 @@ def train(key: jax.random.PRNGKey, p: dict, agent: DQN, env, rb: ReplayBuffer):
                 target_updated = agent.update_target_params(n_training_steps)
 
                 if n_training_steps % 32_000 == 0:
-                    p["wandb"].log({"n_training_steps": n_training_steps, **agent.logs})
+                    p["wandb"].log(agent.logs)
 
         avg_return = np.mean(episode_returns_per_epoch[idx_epoch])
         avg_length_episode = np.mean(episode_lengths_per_epoch[idx_epoch])

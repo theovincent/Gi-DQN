@@ -93,6 +93,7 @@ class iDQNShared:
             self.params = shift_params(self.params)
 
             self.logs = {
+                "n_training_steps": step,
                 "loss": np.mean(self.cumulative_losses) / (self.target_update_period * self.update_to_data),
                 "variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
             }
