@@ -175,6 +175,12 @@ def add_base_arguments(parser: argparse.ArgumentParser):
         default=False,
         action="store_true",
     )
+    parser.add_argument(
+        "--per",
+        help="Whether to use Prioritized Experience Replay.",
+        default=False,
+        action="store_true",
+    )
 
 
 def add_n_bellman_iterations(parser: argparse.ArgumentParser):

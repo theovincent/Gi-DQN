@@ -56,16 +56,29 @@ class DQNRC:
             # if update_to_data < 1, only perform one update if step = 0 [1 / self.update_to_data]
             if self.update_to_data < 1 and step % (1 / self.update_to_data) != 0:
                 return None
-            batch_samples, _ = replay_buffer.sample()
+            batch_samples, (sample_keys, importance_weights) = replay_buffer.sample()
 
-            self.params, self.h_params, self.optimizer_state, self.h_optimizer_state, q_loss, h_loss, variance = (
-                self.learn_on_batch(
-                    self.params, self.h_params, self.optimizer_state, self.h_optimizer_state, batch_samples
-                )
+            (
+                self.params,
+                self.h_params,
+                self.optimizer_state,
+                self.h_optimizer_state,
+                per_sample_q_loss,
+                per_sample_h_loss,
+                variance,
+            ) = self.learn_on_batch(
+                self.params,
+                self.h_params,
+                self.optimizer_state,
+                self.h_optimizer_state,
+                batch_samples,
+                importance_weights,
             )
 
-            self.cumulative_q_loss += q_loss
-            self.cumulative_h_loss += h_loss
+            replay_buffer.update(sample_keys, per_sample_q_loss + per_sample_h_loss)
+
+            self.cumulative_q_loss += per_sample_q_loss.mean()
+            self.cumulative_h_loss += per_sample_h_loss.mean()
             self.cumulative_variance += variance
 
     def update_target_params(self, step: int):
@@ -86,11 +99,17 @@ class DQNRC:
 
     @partial(jax.jit, static_argnames="self")
     def learn_on_batch(
-        self, params: FrozenDict, h_params: FrozenDict, optimizer_state, h_optimizer_state, batch_samples
+        self,
+        params: FrozenDict,
+        h_params: FrozenDict,
+        optimizer_state,
+        h_optimizer_state,
+        batch_samples,
+        importance_weights,
     ):
-        (grad_loss, h_grad_loss), (q_losses, h_losses, variance) = jax.grad(
+        (grad_loss, h_grad_loss), (per_sample_q_loss, per_sample_h_loss, variance) = jax.grad(
             self.loss_on_batch, has_aux=True, argnums=(0, 1)
-        )(params, h_params, batch_samples)
+        )(params, h_params, batch_samples, importance_weights)
 
         updates, optimizer_state = self.optimizer.update(grad_loss, optimizer_state, params)
         h_updates, h_optimizer_state = self.h_optimizer.update(h_grad_loss, h_optimizer_state, h_params)
@@ -98,16 +117,16 @@ class DQNRC:
         params = optax.apply_updates(params, updates)
         h_params = optax.apply_updates(h_params, h_updates)
 
-        return params, h_params, optimizer_state, h_optimizer_state, q_losses, h_losses, variance
+        return params, h_params, optimizer_state, h_optimizer_state, per_sample_q_loss, per_sample_h_loss, variance
 
-    def loss_on_batch(self, params: FrozenDict, h_params: FrozenDict, samples):
+    def loss_on_batch(self, params: FrozenDict, h_params: FrozenDict, samples, importance_weights):
         # vmap to compute the loss for all samples
-        total_losses, q_losses, h_losses, variances = jax.vmap(self.loss, in_axes=(None, None, 0))(
-            params, h_params, samples
+        total_losses, q_losses, h_losses, variances = jax.vmap(self.loss, in_axes=(None, None, 0, 0))(
+            params, h_params, samples, importance_weights
         )
-        return total_losses.mean(), (q_losses.mean(), h_losses.mean(), variances.mean())
+        return total_losses.mean(), (q_losses, h_losses, variances.mean())
 
-    def loss(self, params: FrozenDict, h_params: FrozenDict, sample: ReplayElement):
+    def loss(self, params: FrozenDict, h_params: FrozenDict, sample: ReplayElement, importance_weight):
         # computes the loss for a single sample
         q_value = self.network.apply(params, sample.state)[sample.action]
         target = self.compute_target(params, sample)
@@ -118,7 +137,12 @@ class DQNRC:
 
         td_loss = target * jax.lax.stop_gradient(h_value) - q_value * jax.lax.stop_gradient(td_error)
 
-        return td_loss + h_loss, jnp.square(td_error), jnp.square(h_value - td_error), target**2 - target * q_value
+        return (
+            importance_weight * (td_loss + h_loss),
+            jnp.square(td_error),
+            jnp.square(h_value - td_error),
+            target**2 - target * q_value,
+        )
 
     def compute_target(self, params: FrozenDict, sample: ReplayElement):
         # computes the target value for single sample
