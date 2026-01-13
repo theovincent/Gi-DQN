@@ -125,7 +125,7 @@ class iDQNShared:
 
     def loss_on_batch(self, params: FrozenDict, target_params: FrozenDict, samples, importance_weights):
         total_losses, q_losses, variances = jax.vmap(self.loss, in_axes=(None, None, 0, 0))(
-            params, target_params, samples
+            params, target_params, samples, importance_weights
         )
 
         return total_losses.mean(axis=0).sum(), (q_losses, variances.mean())
