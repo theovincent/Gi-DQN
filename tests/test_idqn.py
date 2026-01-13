@@ -43,7 +43,7 @@ class TestiDQN(unittest.TestCase):
         print(f"-------------- Random key {self.random_seed} --------------")
         sample = self.generator.sample(self.key)
 
-        computed_loss = self.q.loss(self.q.params, sample)[0].sum()
+        computed_loss = self.q.loss(self.q.params, sample, jnp.ones(1))[0].sum()
 
         targets = jax.vmap(self.q.compute_target, in_axes=(0, None))(self.q.params, sample)[:-1]
         predictions = jax.vmap(self.q.network.apply, in_axes=(0, None))(self.q.params, sample.state)[1:, sample.action]

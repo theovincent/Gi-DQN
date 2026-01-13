@@ -44,7 +44,7 @@ class TestDQNRCShared(unittest.TestCase):
         print(f"-------------- Random key {self.random_seed} --------------")
         sample = self.generator.sample(self.key)
 
-        computed_loss = self.q.loss(self.q.params, sample)[0]
+        computed_loss = self.q.loss(self.q.params, sample, jnp.ones(1))[0]
 
         target = self.q.compute_target(self.q.params, sample)
         q_predictions, h_predictions = self.q.network.apply(self.q.params, sample.state)

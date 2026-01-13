@@ -46,7 +46,7 @@ class TestGiDQNLinear(unittest.TestCase):
         print(f"-------------- Random key {self.random_seed} --------------")
         sample = self.generator.sample(self.key)
 
-        computed_loss = self.q.loss(self.q.params, self.q.target_params, sample)[0].sum()
+        computed_loss = self.q.loss(self.q.params, self.q.target_params, sample, jnp.ones(1))[0].sum()
 
         first_next_q_values = self.q.root_network.apply(self.q.target_params, sample.next_state)
         next_q_values = self.q.online_networks.apply(self.q.params, sample.next_state)[0]
@@ -78,13 +78,13 @@ class TestGiDQNLinear(unittest.TestCase):
         state = self.generator.state(self.key)
 
         first_q_values = self.q.online_networks.apply(self.q.params, state)[0][0]
-        target_params = set_target_params(self.q.params)
+        target_params = set_target_params(self.q.params, self.q.online_networks.linear_heads, self.n_actions)
         target_q_values = self.q.root_network.apply(target_params, state)
 
         self.assertEqual(np.linalg.norm(first_q_values - target_q_values), 0)
 
         q_values, h_values = self.q.online_networks.apply(self.q.params, state)
-        shifted_params = shift_params(self.q.params)
+        shifted_params = shift_params(self.q.params, self.q.online_networks.linear_heads, self.n_actions)
         shifted_q_values, shifted_h_values = self.q.online_networks.apply(shifted_params, state)
 
         self.assertEqual(np.linalg.norm(shifted_q_values[:-1] - q_values[1:]), 0)
