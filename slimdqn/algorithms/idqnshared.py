@@ -9,7 +9,7 @@ from slimdqn.algorithms.architectures.dqn import DQNNet
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 
-@jax.jit
+@partial(jax.jit, static_argnames=("linear_heads", "n_actions"))
 def set_target_params(params, linear_heads, n_actions):
     if not linear_heads:
         q_heads = jax.tree.map(lambda p: p[0], params["params"]["q_heads"])
@@ -18,7 +18,7 @@ def set_target_params(params, linear_heads, n_actions):
     return optax.tree_utils.tree_set(params, q_heads=q_heads)
 
 
-@jax.jit
+@partial(jax.jit, static_argnames=("linear_heads", "n_actions"))
 def shift_params(params, linear_heads, n_actions):
     if not linear_heads:
         q_heads = jax.tree.map(lambda p: p.at[:-1].set(p[1:]), params["params"]["q_heads"])

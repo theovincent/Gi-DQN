@@ -121,7 +121,7 @@ class DQNNet(nn.Module):
                     self.features[-1], self.n_actions, initializer, self.layer_norm, name="q_heads"
                 )(x)
             else:
-                q_vals = nn.Dense(self.n_heads * self.n_actions, kernel_init=initializer, name="q_heads")(x).reshape(
+                q_vals = Head(None, self.n_heads * self.n_actions, initializer, False, name="q_heads")(x).reshape(
                     (self.n_heads, self.n_actions)
                 )
 
@@ -146,7 +146,7 @@ class DQNNet(nn.Module):
                     name="h_heads",
                 )(jax.lax.stop_gradient(x))
             else:
-                h_vals = nn.Dense(self.n_h_heads * self.n_actions, kernel_init=initializer, name="q_heads")(
+                h_vals = Head(None, self.n_h_heads * self.n_actions, initializer, False, name="h_heads")(
                     jax.lax.stop_gradient(x)
                 ).reshape((self.n_h_heads, self.n_actions))
             return q_vals, h_vals
