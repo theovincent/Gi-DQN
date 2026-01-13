@@ -1,5 +1,5 @@
-SHARED_ARGS="--features 32 64 64 512 --replay_buffer_capacity 1_000_000 --batch_size 32 --gamma 0.99 \
-    --horizon 27_000 --n_epochs 40 --n_training_steps_per_epoch 250_000 --n_initial_samples 20_000 \
+SHARED_ARGS="--replay_buffer_capacity 1_000_000 --batch_size 32 --gamma 0.99 --horizon 27_000 \
+    --n_epochs 40 --n_training_steps_per_epoch 250_000 --n_initial_samples 20_000 \
     --epsilon_end 0.01 --epsilon_duration 250_000 --learning_rate 6.25e-5"
 
 GAME="Qbert"
@@ -18,6 +18,12 @@ DISABLE_WANDB=0 # 0 1
 
 PLATFORM="cluster/cluster"  # cluster/cluster local/local pegasus/cluster
 
+if [ $ARCHITECTURE_TYPE == "cnn" ]
+then
+    SHARED_ARGS="$SHARED_ARGS --features 32 64 64 512"
+else
+    SHARED_ARGS="$SHARED_ARGS --features 16 32 32 512"
+fi
 if [ $GAP == 1 ]
 then
     SHARED_ARGS="$SHARED_ARGS --gap"
