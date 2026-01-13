@@ -45,12 +45,15 @@ class DQN:
             # if update_to_data < 1, only perform one update if step = 0 [1 / self.update_to_data]
             if self.update_to_data < 1 and step % (1 / self.update_to_data) != 0:
                 return None
-            batch_samples, _ = replay_buffer.sample()
+            batch_samples, (sample_keys, importance_weights) = replay_buffer.sample()
 
-            self.params, self.optimizer_state, loss, variance = self.learn_on_batch(
-                self.params, self.target_params, self.optimizer_state, batch_samples
+            self.params, self.optimizer_state, per_sample_q_loss, variance = self.learn_on_batch(
+                self.params, self.target_params, self.optimizer_state, batch_samples, importance_weights
             )
-            self.cumulative_loss += loss
+
+            replay_buffer.update(sample_keys, per_sample_q_loss)
+
+            self.cumulative_loss += per_sample_q_loss.mean()
             self.cumulative_variance += variance
 
     def update_target_params(self, step: int):
@@ -75,24 +78,31 @@ class DQN:
         params_target: FrozenDict,
         optimizer_state,
         batch_samples,
+        importance_weights,
     ):
-        ((loss, variance), grad_loss) = jax.value_and_grad(self.loss_on_batch, has_aux=True)(
-            params, params_target, batch_samples
+        grad_loss, (per_sample_q_loss, variance) = jax.grad(self.loss_on_batch, has_aux=True)(
+            params, params_target, batch_samples, importance_weights
         )
         updates, optimizer_state = self.optimizer.update(grad_loss, optimizer_state)
         params = optax.apply_updates(params, updates)
 
-        return params, optimizer_state, loss, variance
+        return params, optimizer_state, per_sample_q_loss, variance
 
-    def loss_on_batch(self, params: FrozenDict, params_target: FrozenDict, samples):
-        losses, variances = jax.vmap(self.loss, in_axes=(None, None, 0))(params, params_target, samples)
-        return losses.mean(), variances.mean()
+    def loss_on_batch(self, params: FrozenDict, params_target: FrozenDict, samples, importance_weights):
+        total_losses, q_losses, variances = jax.vmap(self.loss, in_axes=(None, None, 0, 0))(
+            params, params_target, samples, importance_weights
+        )
+        return total_losses.mean(), (q_losses, variances.mean())
 
-    def loss(self, params: FrozenDict, params_target: FrozenDict, sample: ReplayElement):
+    def loss(self, params: FrozenDict, params_target: FrozenDict, sample: ReplayElement, importance_weight):
         # computes the loss for a single sample
         target = self.compute_target(params_target, sample)
         q_value = self.network.apply(params, sample.state)[sample.action]
-        return jnp.square(q_value - target), (target**2 - target * q_value)
+        return (
+            importance_weight * jnp.square(q_value - target),
+            jnp.square(q_value - target),
+            target**2 - target * q_value,
+        )
 
     def compute_target(self, params: FrozenDict, sample: ReplayElement):
         # computes the target value for single sample
