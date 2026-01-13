@@ -11,14 +11,23 @@ from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 
 @jax.jit
-def set_target_params(params):
-    return optax.tree_utils.tree_set(params, q_heads=jax.tree.map(lambda p: p[0], params["params"]["q_heads"]))
+def set_target_params(params, linear_heads, n_actions):
+    if not linear_heads:
+        q_heads = jax.tree.map(lambda p: p[0], params["params"]["q_heads"])
+    else:
+        q_heads = jax.tree.map(lambda p: p[..., :n_actions], params["params"]["q_heads"])
+    return optax.tree_utils.tree_set(params, q_heads=q_heads, h_heads=None)
 
 
 @jax.jit
-def shift_params(params):
-    q_heads = jax.tree.map(lambda p: p.at[:-1].set(p[1:]), params["params"]["q_heads"])
-    h_heads = jax.tree.map(lambda p: p.at[:-1].set(p[1:]), params["params"]["h_heads"])
+def shift_params(params, linear_heads, n_actions):
+    if not linear_heads:
+        q_heads = jax.tree.map(lambda p: p.at[:-1].set(p[1:]), params["params"]["q_heads"])
+        h_heads = jax.tree.map(lambda p: p.at[:-1].set(p[1:]), params["params"]["h_heads"])
+    else:
+        q_heads = jax.tree.map(lambda p: p.at[..., :-n_actions].set(p[..., n_actions:]), params["params"]["q_heads"])
+        h_heads = jax.tree.map(lambda p: p.at[..., :-n_actions].set(p[..., n_actions:]), params["params"]["h_heads"])
+
     return optax.tree_utils.tree_set(params, q_heads=q_heads, h_heads=h_heads)
 
 
@@ -63,7 +72,7 @@ class GiDQNShared:
         # initialize 1 network with K q-heads and K OR K-1 h-heads
         self.params = self.online_networks.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
         # initialize the target networks
-        self.target_params = set_target_params(self.params)
+        self.target_params = set_target_params(self.params, linear_heads, self.n_actions)
 
         self.optimizer = optax.adamw(
             learning_rate,
@@ -103,9 +112,9 @@ class GiDQNShared:
     def update_target_params(self, step: int):
         # shift the network parameters every `target_update_period` steps. This starts the next Bellman iteration
         if step % self.target_update_period == 0:
-            self.target_params = set_target_params(self.params)
+            self.target_params = set_target_params(self.params, self.online_networks.linear_heads, self.n_actions)
             # Window shift
-            self.params = shift_params(self.params)
+            self.params = shift_params(self.params, self.online_networks.linear_heads, self.n_actions)
 
             self.logs = {
                 "n_training_steps": step,
