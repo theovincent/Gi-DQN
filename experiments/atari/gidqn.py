@@ -20,7 +20,7 @@ def run(argvs=sys.argv[1:]):
 
     env = AtariEnv(p["experiment_name"].split("_")[-1])
     rb = ReplayBuffer(
-        sampling_distribution=Prioritized(p["replay_buffer_capacity"], p["seed"]) if p["per"] else Uniform(p["seed"]),
+        sampling_distribution=Prioritized(p["seed"], p["replay_buffer_capacity"]) if p["per"] else Uniform(p["seed"]),
         batch_size=p["batch_size"],
         max_capacity=p["replay_buffer_capacity"],
         update_horizon=p["update_horizon"],
