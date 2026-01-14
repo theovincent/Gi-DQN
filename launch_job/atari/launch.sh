@@ -1,11 +1,10 @@
 SHARED_ARGS="--replay_buffer_capacity 1_000_000 --batch_size 32 --gamma 0.99 --horizon 27_000 \
-    --n_epochs 40 --n_training_steps_per_epoch 250_000 --n_initial_samples 20_000 \
-    --epsilon_end 0.01 --epsilon_duration 250_000 --learning_rate 6.25e-5"
+    --n_initial_samples 20_000 --epsilon_end 0.01 --epsilon_duration 250_000 --learning_rate 6.25e-5"
 
 GAME="Qbert"
-UPDATE_TO_DATA=0.25  # 0.25 1
+UPDATE_TO_DATA=0.25  # 0.25 4
 ARCHITECTURE_TYPE="cnn"  # cnn impala
-GAP=0 # 0 1 
+GAP=0 # 0 1
 UPDATE_HORIZON=1  # 1 3
 PER=0  # 0 1
 LAYER_NORM=0  # 0 1
@@ -23,6 +22,12 @@ then
     SHARED_ARGS="$SHARED_ARGS --features 32 64 64 512"
 else
     SHARED_ARGS="$SHARED_ARGS --features 16 32 32 512"
+fi
+if [ $UPDATE_TO_DATA == 0.25 ]
+then
+    SHARED_ARGS="$SHARED_ARGS --n_epochs 100 --n_training_steps_per_epoch 250_000"
+else
+    SHARED_ARGS="$SHARED_ARGS --n_epochs 20 --n_training_steps_per_epoch 80_000"
 fi
 if [ $GAP == 1 ]
 then
