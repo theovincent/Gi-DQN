@@ -83,8 +83,6 @@ class DQNRCShared:
             self.cumulative_q_loss = 0
             self.cumulative_h_loss = 0
             self.cumulative_variance = 0
-            return True
-        return False
 
     @partial(jax.jit, static_argnames="self")
     def learn_on_batch(self, params: FrozenDict, optimizer_state, batch_samples, importance_weights):

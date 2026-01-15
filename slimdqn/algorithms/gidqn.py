@@ -124,8 +124,6 @@ class GiDQN:
             self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)
             self.cumulative_h_losses = np.zeros(self.n_bellman_iterations - int(self.freeze_first_head))
             self.cumulative_variance = 0
-            return True
-        return False
 
     @partial(jax.jit, static_argnames="self")
     def learn_on_batch(

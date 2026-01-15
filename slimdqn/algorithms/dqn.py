@@ -68,9 +68,6 @@ class DQN:
             self.cumulative_loss = 0
             self.cumulative_variance = 0
 
-            return True
-        return False
-
     @partial(jax.jit, static_argnames="self")
     def learn_on_batch(
         self,

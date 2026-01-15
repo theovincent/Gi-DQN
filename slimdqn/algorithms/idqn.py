@@ -84,8 +84,6 @@ class iDQN:
 
             self.cumulative_losses = np.zeros(self.n_bellman_iterations)
             self.cumulative_variance = 0
-            return True
-        return False
 
     @partial(jax.jit, static_argnames="self")
     def learn_on_batch(self, params: FrozenDict, optimizer_state, batch_samples, importance_weights):
