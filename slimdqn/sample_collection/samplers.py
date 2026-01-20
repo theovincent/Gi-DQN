@@ -87,5 +87,9 @@ class Prioritized(Uniform):
             print("indices", indices, flush=True)
             print("targets", targets, flush=True)
             print("probabilities", probabilities, flush=True)
+            np.save("nodes", self.sum_tree.nodes)
+            np.save("max_recorded_priority", self.sum_tree.max_recorded_priority)
+            np.save("index_to_key", self.index_to_key)
+            np.save("key_to_index", self.key_to_index)
             raise e
         return keys, importance_weights
