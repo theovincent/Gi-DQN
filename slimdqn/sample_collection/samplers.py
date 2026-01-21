@@ -79,17 +79,4 @@ class Prioritized(Uniform):
         importance_weights = 1.0 / np.sqrt(probabilities + 1e-10)  # beta = 0.5
         importance_weights /= np.max(importance_weights)
 
-        try:
-            keys = np.array([self.index_to_key[index] for index in indices], dtype=np.int32)
-        except Exception as e:
-            print("Lenght index to key", len(self.index_to_key), flush=True)
-            print("Tree root", self.sum_tree.root, flush=True)
-            print("indices", indices, flush=True)
-            print("targets", targets, flush=True)
-            print("probabilities", probabilities, flush=True)
-            np.save("nodes", self.sum_tree.nodes)
-            np.save("max_recorded_priority", self.sum_tree.max_recorded_priority)
-            np.save("index_to_key", self.index_to_key)
-            np.save("key_to_index", self.key_to_index)
-            raise e
-        return keys, importance_weights
+        return np.array([self.index_to_key[index] for index in indices], dtype=np.int32), importance_weights
