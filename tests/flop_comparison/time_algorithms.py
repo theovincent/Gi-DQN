@@ -50,6 +50,6 @@ if __name__ == "__main__":
 
     json.dump(
         {"dqn": time_dqn, "dqnrcshared": time_dqnrcshared, "idqn": time_idqnshared, "gidqn": time_gidqnshared},
-        open("tests/time_computation/time_algorithms.json", "w"),
+        open("tests/flop_comparison/time_algorithms.json", "w"),
         indent=4,
     )
