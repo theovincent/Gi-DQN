@@ -36,9 +36,9 @@ def run_algorithm(algo_name, algo_args):
 if __name__ == "__main__":
     base_args = (
         "--seed 1 --disable_wandb --replay_buffer_capacity 1_000_000 --batch_size 32 --update_horizon 1 --gamma 0.99 "
-        + "--horizon 27_000 --target_update_period 8000 --n_epochs 2 --n_training_steps_per_epoch 250_000 --update_to_data 0.25 "
+        + "--horizon 27_000 --target_update_period 8000 --n_epochs 1 --n_training_steps_per_epoch 250_000 --update_to_data 0.25 "
         + "--architecture_type cnn --features 32 64 64 512 "
-        + "--n_initial_samples 20_000 --epsilon_end 0.01 --epsilon_duration 1 --learning_rate 6.25e-5"
+        + "--n_initial_samples 32 --epsilon_end 0.01 --epsilon_duration 1 --learning_rate 6.25e-5"
     )
 
     time_dqn = run_algorithm("dqn", base_args)
