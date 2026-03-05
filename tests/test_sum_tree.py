@@ -40,7 +40,7 @@ class SumTreeTest(unittest.TestCase):
 
     def test_query_value(self):
         self.tree.set(5, 1.0)
-        self.assertEqual(self.tree.query(0.99), 5)
+        self.assertEqual(self.tree.query(0.99, 5), 5)
 
     def test_max_recorded_priority(self):
         self.tree.set(0, 0)

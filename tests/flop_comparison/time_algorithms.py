@@ -48,7 +48,7 @@ if __name__ == "__main__":
     time_cnn_qrc = run_algorithm("dqnrcshared", base_args_cnn + " --linear_heads --weight_decay 1")
     time_cnn_iq = run_algorithm("idqnshared", base_args_cnn + " --linear_heads --n_bellman_iterations 5")
     time_cnn_giq = run_algorithm(
-        "gidqnshared", base_args_cnn + " --linear_heads --n_bellman_iterations 5 --weight_decay 1 --freeze_first_head"
+        "gidqnshared", base_args_cnn + " --linear_heads --n_bellman_iterations 5 --weight_decay 1"
     )
 
     results = {"cnn+dqn": {"q": time_cnn_q, "qrc": time_cnn_qrc, "iq": time_cnn_iq, "giq": time_cnn_giq}}
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     time_impala_iq = run_algorithm("idqnshared", base_args_impala + " --linear_heads --n_bellman_iterations 5")
     time_impala_giq = run_algorithm(
         "gidqnshared",
-        base_args_impala + " --linear_heads --n_bellman_iterations 5 --weight_decay 1 --freeze_first_head",
+        base_args_impala + " --linear_heads --n_bellman_iterations 5 --weight_decay 1",
     )
 
     results.update(

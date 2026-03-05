@@ -47,7 +47,6 @@ class GiDQNShared:
         gamma: float,
         update_horizon: int,
         update_to_data: int,
-        freeze_first_head: bool,
         target_update_period: int,
         weight_decay: float,
         adam_eps: float = 1e-8,
@@ -63,7 +62,7 @@ class GiDQNShared:
             linear_heads,
             n_actions,
             n_heads=self.n_bellman_iterations,
-            n_h_heads=self.n_bellman_iterations - int(freeze_first_head),
+            n_h_heads=self.n_bellman_iterations - 1,
         )
         self.root_network = DQNNet(
             features, architecture_type, layer_norm, gap, linear_heads, n_actions, n_heads=1, n_h_heads=0
@@ -85,10 +84,9 @@ class GiDQNShared:
         self.gamma = gamma
         self.update_horizon = update_horizon
         self.update_to_data = update_to_data
-        self.freeze_first_head = freeze_first_head
         self.target_update_period = target_update_period
         self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)
-        self.cumulative_h_losses = np.zeros(self.n_bellman_iterations - int(freeze_first_head))
+        self.cumulative_h_losses = np.zeros(self.n_bellman_iterations - 1)
         self.cumulative_variance = 0
 
     def update_online_params(self, step: int, replay_buffer: ReplayBuffer):
@@ -126,13 +124,13 @@ class GiDQNShared:
                 self.logs[f"networks/{idx_network}_loss"] = self.cumulative_q_losses[idx_network] / (
                     self.target_update_period * self.update_to_data
                 )
-            for idx_network in range(min(5, self.n_bellman_iterations - int(self.freeze_first_head))):
+            for idx_network in range(min(5, self.n_bellman_iterations - 1)):
                 self.logs[f"h_networks/{idx_network}_loss"] = self.cumulative_h_losses[idx_network] / (
                     self.target_update_period * self.update_to_data
                 )
 
             self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)
-            self.cumulative_h_losses = np.zeros(self.n_bellman_iterations - int(self.freeze_first_head))
+            self.cumulative_h_losses = np.zeros(self.n_bellman_iterations - 1)
             self.cumulative_variance = 0
 
     @partial(jax.jit, static_argnames="self")
@@ -167,20 +165,19 @@ class GiDQNShared:
         # (K)
         td_errors = targets - q_values
 
-        # (K - 1) if freeze_first_head is True OR (K)
-        h_loss = h_values * jax.lax.stop_gradient(h_values - td_errors[int(self.freeze_first_head) :])
+        h_loss = h_values * jax.lax.stop_gradient(h_values - td_errors[1:])
 
-        target_loss = targets[int(self.freeze_first_head) :] * jax.lax.stop_gradient(h_values)
-        if self.freeze_first_head:
-            h_loss = jnp.append(jnp.zeros(1), h_loss)
-            target_loss = jnp.append(jnp.zeros(1), target_loss)
+        target_loss = targets[1:] * jax.lax.stop_gradient(h_values)
+
+        h_loss = jnp.append(jnp.zeros(1), h_loss)
+        target_loss = jnp.append(jnp.zeros(1), target_loss)
 
         td_loss = target_loss - q_values * jax.lax.stop_gradient(td_errors)
 
         return (
             importance_weight * (td_loss + h_loss),
             jnp.square(td_errors),
-            jnp.square(h_values - td_errors[int(self.freeze_first_head) :]),
+            jnp.square(h_values - td_errors[1 :]),
             targets**2 - targets * q_values,
         )
 
