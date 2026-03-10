@@ -1,7 +1,7 @@
-SHARED_ARGS="--replay_buffer_capacity 1_000_000 --batch_size 32 --gamma 0.99 --horizon 27_000 \
-    --n_initial_samples 20_000 --epsilon_end 0.01 --epsilon_duration 250_000 --learning_rate 6.25e-5"
+SHARED_ARGS="--replay_buffer_capacity 100_000 --batch_size 32 --gamma 0.99 --horizon 27_000 \
+    --n_initial_samples 20_000 --epsilon_end 0.01 --epsilon_duration 60_000 --learning_rate 6.25e-5"
 
-GAME="Breakout"
+GAME="SpaceInvaders"
 UPDATE_TO_DATA=0.25  # 0.03125 0.25 4
 ARCHITECTURE_TYPE="cnn"  # cnn impala
 GAP=0 # 0 1
@@ -14,19 +14,19 @@ WEIGHT_DECAY=1
 N_BELLMAN_ITERATIONS=5
 DISABLE_WANDB=1 # 0 1
 
-PLATFORM="local/local"  # cluster/cluster local/local
+PLATFORM="cluster/cluster"  # cluster/cluster local/local
 
 if [ $ARCHITECTURE_TYPE == "cnn" ]
 then
-    SHARED_ARGS="$SHARED_ARGS --features 32 64 64 512"
+    SHARED_ARGS="$SHARED_ARGS --features 8 16 16 128"
 else
-    SHARED_ARGS="$SHARED_ARGS --features 16 32 32 512"
+    SHARED_ARGS="$SHARED_ARGS --features 4 8 8 128"
 fi
 if [ $UPDATE_TO_DATA == 4 ]
 then
-    SHARED_ARGS="$SHARED_ARGS --n_epochs 20 --n_training_steps_per_epoch 80_000"
+    SHARED_ARGS="$SHARED_ARGS --n_epochs 5 --n_training_steps_per_epoch 20_000"
 else
-    SHARED_ARGS="$SHARED_ARGS --n_epochs 100 --n_training_steps_per_epoch 250_000"
+    SHARED_ARGS="$SHARED_ARGS --n_epochs 25 --n_training_steps_per_epoch 60_000"
 fi
 if [ $GAP == 1 ]
 then
@@ -60,4 +60,5 @@ fi
 GIDQNSHARED_ARGS="--n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY"
 GIDQNSHARED_ARGS="$GIDQNSHARED_ARGS --experiment_name L2_K${N_BELLMAN_ITERATIONS}_WD${WEIGHT_DECAY}_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME}"
 
-launch_job/atari/${PLATFORM}_gidqnshared.sh --first_seed 1 --last_seed 1 --n_parallel_seeds 1 $SHARED_ARGS $GIDQNSHARED_ARGS
+launch_job/atari/${PLATFORM}_dqn.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $GIDQNSHARED_ARGS
+#launch_job/atari/${PLATFORM}_gidqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $GIDQNSHARED_ARGS
