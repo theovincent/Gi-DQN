@@ -18,7 +18,7 @@ def run(argvs=sys.argv[1:]):
 
     q_key, train_key = jax.random.split(jax.random.PRNGKey(p["seed"]))
 
-    env = AtariEnv(p["experiment_name"].split("_")[-1])
+    env = AtariEnv(name=p["experiment_name"].split("_")[-1], n_stacked_frames=2, n_skipped_frames=4)
     rb = ReplayBuffer(
         sampling_distribution=Prioritized(p["seed"], p["replay_buffer_capacity"]) if p["per"] else Uniform(p["seed"]),
         batch_size=p["batch_size"],
@@ -26,7 +26,7 @@ def run(argvs=sys.argv[1:]):
         update_horizon=p["update_horizon"],
         gamma=p["gamma"],
         clipping=lambda x: np.clip(x, -1, 1),
-        stack_size=2,
+        stack_size=env.n_stacked_frames,
     )
     agent = GiDQNShared(
         q_key,
