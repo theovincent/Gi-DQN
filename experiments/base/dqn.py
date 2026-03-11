@@ -8,6 +8,8 @@ from slimdqn.algorithms.dqn import DQN
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer
 from slimdqn.sample_collection.utils import collect_single_sample
 
+import time, resource
+
 
 def train(key: jax.random.PRNGKey, p: dict, agent: DQN, env, rb: ReplayBuffer):
     epsilon_schedule = optax.linear_schedule(1.0, p["epsilon_end"], p["epsilon_duration"])
@@ -16,6 +18,10 @@ def train(key: jax.random.PRNGKey, p: dict, agent: DQN, env, rb: ReplayBuffer):
     env.reset()
     episode_returns_per_epoch = [[0]]
     episode_lengths_per_epoch = [[0]]
+
+    param_count = sum(x.size for x in jax.tree_util.tree_leaves(agent.params))
+    print(f"DQN param count: {param_count:,}")
+    print(f"Start time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))}")
 
     for idx_epoch in tqdm(range(p["n_epochs"])):
         n_training_steps_epoch = 0
@@ -42,6 +48,11 @@ def train(key: jax.random.PRNGKey, p: dict, agent: DQN, env, rb: ReplayBuffer):
 
                 if n_training_steps % 64_000 == 0:
                     p["wandb"].log(agent.logs)
+
+        end_epoch = time.time()
+        print(f"Runtime Epoch {idx_epoch}: {(end_epoch - start_epoch) / 60:.4f} minutes")
+        peak_ram = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        print(f"Peak RAM: {peak_ram:.2f} MB")
 
         avg_return = np.mean(episode_returns_per_epoch[idx_epoch])
         avg_length_episode = np.mean(episode_lengths_per_epoch[idx_epoch])

@@ -1,10 +1,10 @@
-SHARED_ARGS="--replay_buffer_capacity 100_000 --batch_size 32 --gamma 0.99 --horizon 27_000 \
+SHARED_ARGS="--replay_buffer_capacity 100_000 --batch_size 24 --gamma 0.99 --horizon 27_000 \
     --n_initial_samples 20_000 --epsilon_end 0.01 --epsilon_duration 60_000 --learning_rate 6.25e-5"
 
-GAME="SpaceInvaders"
+GAME="SpaceInvaders" # Breakout, ...
 UPDATE_TO_DATA=0.25  # 0.03125 0.25 4
 ARCHITECTURE_TYPE="cnn"  # cnn impala
-GAP=0 # 0 1
+GAP=1 # 0 1
 UPDATE_HORIZON=1  # 1 3
 PER=0  # 0 1
 LAYER_NORM=0  # 0 1
@@ -26,7 +26,7 @@ if [ $UPDATE_TO_DATA == 4 ]
 then
     SHARED_ARGS="$SHARED_ARGS --n_epochs 5 --n_training_steps_per_epoch 20_000"
 else
-    SHARED_ARGS="$SHARED_ARGS --n_epochs 25 --n_training_steps_per_epoch 60_000"
+    SHARED_ARGS="$SHARED_ARGS --n_epochs 100 --n_training_steps_per_epoch 50_000"
 fi
 if [ $GAP == 1 ]
 then
