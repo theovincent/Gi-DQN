@@ -20,7 +20,7 @@ def train(key: jax.random.PRNGKey, p: dict, agent: DQN, env, rb: ReplayBuffer):
     episode_lengths_per_epoch = [[0]]
 
     param_count = sum(x.size for x in jax.tree_util.tree_leaves(agent.params))
-    print(f"DQN param count: {param_count:,}")
+    print(f"Agent param count: {param_count:,}")
     print(f"Start time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))}")
 
     for idx_epoch in tqdm(range(p["n_epochs"])):
