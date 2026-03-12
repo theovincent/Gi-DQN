@@ -26,7 +26,7 @@ def train(key: jax.random.PRNGKey, p: dict, agent: DQN, env, rb: ReplayBuffer):
     for idx_epoch in tqdm(range(p["n_epochs"])):
         n_training_steps_epoch = 0
         has_reset = False
-
+        start_epoch = time.time()
         while n_training_steps_epoch < p["n_training_steps_per_epoch"] or not has_reset:
             key, exploration_key = jax.random.split(key)
             reward, has_reset = collect_single_sample(
