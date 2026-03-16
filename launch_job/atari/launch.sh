@@ -1,5 +1,5 @@
 SHARED_ARGS="--replay_buffer_capacity 50_000 --batch_size 32 --gamma 0.99 --horizon 27_000 \
-    --n_initial_samples 50_000 --epsilon_end 0.01 --epsilon_duration 50_000 --learning_rate 6.25e-5"
+    --n_initial_samples 20_000 --epsilon_end 0.01 --epsilon_duration 50_000 --learning_rate 6.25e-5"
 
 GAME="Breakout" # SpaceInvaders, Breakout, ...
 UPDATE_TO_DATA=0.25  # 0.03125 0.25 4
