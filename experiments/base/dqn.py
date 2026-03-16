@@ -22,7 +22,7 @@ def train(key: jax.random.PRNGKey, p: dict, agent: DQN, env, rb: ReplayBuffer):
     param_count = sum(x.size for x in jax.tree_util.tree_leaves(agent.params))
     print(f"Agent param count: {param_count:,}")
     print(f"Start time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))}")
-
+    peak_ram = 0
     for idx_epoch in tqdm(range(p["n_epochs"])):
         n_training_steps_epoch = 0
         has_reset = False
@@ -51,8 +51,8 @@ def train(key: jax.random.PRNGKey, p: dict, agent: DQN, env, rb: ReplayBuffer):
 
         end_epoch = time.time()
         print(f"Runtime Epoch {idx_epoch}: {(end_epoch - start_epoch) / 60:.4f} minutes")
-        peak_ram = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
-        print(f"Peak RAM: {peak_ram:.2f} MB")
+        peak_ram_episode = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        peak_ram = peak_ram_episode if peak_ram_episode > peak_ram else peak_ram
 
         avg_return = np.mean(episode_returns_per_epoch[idx_epoch])
         avg_length_episode = np.mean(episode_lengths_per_epoch[idx_epoch])
@@ -70,5 +70,5 @@ def train(key: jax.random.PRNGKey, p: dict, agent: DQN, env, rb: ReplayBuffer):
         if idx_epoch < p["n_epochs"] - 1:
             episode_returns_per_epoch.append([0])
             episode_lengths_per_epoch.append([0])
-
+        print(f"Peak RAM: {peak_ram:.2f} MB")
         save_data(p, episode_returns_per_epoch, episode_lengths_per_epoch, agent.get_model())
