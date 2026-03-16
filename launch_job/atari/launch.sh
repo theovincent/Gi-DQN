@@ -1,32 +1,32 @@
-SHARED_ARGS="--replay_buffer_capacity 100_000 --batch_size 24 --gamma 0.99 --horizon 27_000 \
-    --n_initial_samples 20_000 --epsilon_end 0.01 --epsilon_duration 60_000 --learning_rate 6.25e-5"
+SHARED_ARGS="--replay_buffer_capacity 50_000 --batch_size 32 --gamma 0.99 --horizon 27_000 \
+    --n_initial_samples 50_000 --epsilon_end 0.01 --epsilon_duration 50_000 --learning_rate 6.25e-5"
 
-GAME="SpaceInvaders" # Breakout, ...
+GAME="Breakout" # SpaceInvaders, Breakout, ...
 UPDATE_TO_DATA=0.25  # 0.03125 0.25 4
 ARCHITECTURE_TYPE="cnn"  # cnn impala
 GAP=1 # 0 1
 UPDATE_HORIZON=1  # 1 3
 PER=0  # 0 1
-LAYER_NORM=0  # 0 1
+LAYER_NORM=1  # 0 1
 TARGET_UPDATE_PERIOD=8000
 LINEAR_HEADS=1 # 0 1
 WEIGHT_DECAY=1
 N_BELLMAN_ITERATIONS=5
-DISABLE_WANDB=1 # 0 1
+DISABLE_WANDB=0 # 0 1
 
 PLATFORM="cluster/cluster"  # cluster/cluster local/local
 
 if [ $ARCHITECTURE_TYPE == "cnn" ]
 then
-    SHARED_ARGS="$SHARED_ARGS --features 8 16 16 128"
+    SHARED_ARGS="$SHARED_ARGS --features 16 32 32 64"
 else
-    SHARED_ARGS="$SHARED_ARGS --features 4 8 8 128"
+    SHARED_ARGS="$SHARED_ARGS --features 16 32 32 64"
 fi
 if [ $UPDATE_TO_DATA == 4 ]
 then
-    SHARED_ARGS="$SHARED_ARGS --n_epochs 5 --n_training_steps_per_epoch 20_000"
+    SHARED_ARGS="$SHARED_ARGS --n_epochs 40 --n_training_steps_per_epoch 50_000"
 else
-    SHARED_ARGS="$SHARED_ARGS --n_epochs 100 --n_training_steps_per_epoch 50_000"
+    SHARED_ARGS="$SHARED_ARGS --n_epochs 40 --n_training_steps_per_epoch 50_000"
 fi
 if [ $GAP == 1 ]
 then
