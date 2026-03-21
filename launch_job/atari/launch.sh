@@ -22,7 +22,12 @@ LAYER_NORM_FC=1 # 0 1
 #Architecture
 CONV2=0 # 0 1, whether to use 3 convolutional layers, when true the first 3 entries of features are Conv Layers
 FC1=0 # 0 1, whether to use only one FC layer to map directly to actions
-
+if [ $ARCHITECTURE_TYPE == "cnn" ]
+then
+    SHARED_ARGS="$SHARED_ARGS --features 16 16 16 32"
+else
+    SHARED_ARGS="$SHARED_ARGS --features 32 64 64 512"
+fi
 # Atari
 LOW_SCALE=0 # 0 1  whether to use 42 x 42 pixels instead of 84 x 84
 FRAME_STACK=2
@@ -57,14 +62,6 @@ then
   FCLAYERS="fc1"
 else
   FCLAYERS="fc2"
-fi
-
-
-if [ $ARCHITECTURE_TYPE == "cnn" ]
-then
-    SHARED_ARGS="$SHARED_ARGS --features 16 16 16 32"
-else
-    SHARED_ARGS="$SHARED_ARGS --features 32 64 64 512"
 fi
 if [ $UPDATE_TO_DATA == 4 ]
 then
