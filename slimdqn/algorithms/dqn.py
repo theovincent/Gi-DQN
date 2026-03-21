@@ -17,7 +17,7 @@ class DQN:
         n_actions,
         features: list,
         architecture_type: str,
-        layer_norm: bool,
+        layer_norm: tuple[bool, bool],
         gap: bool,
         learning_rate: float,
         gamma: float,
@@ -25,8 +25,23 @@ class DQN:
         update_to_data: int,
         target_update_period: int,
         adam_eps: float = 1e-8,
+        low_scale: bool = False,
+        conv2: bool = False,
+        fc1: bool = False,
     ):
-        self.network = DQNNet(features, architecture_type, layer_norm, gap, False, n_actions, n_heads=1, n_h_heads=0)
+        self.network = DQNNet(
+            features,
+            architecture_type,
+            layer_norm,
+            gap,
+            False,
+            n_actions,
+            n_heads=1,
+            n_h_heads=0,
+            low_scale=low_scale,
+            conv2=conv2,
+            fc1=fc1,
+        )
         self.params = self.network.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)

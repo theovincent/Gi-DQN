@@ -165,9 +165,10 @@ def add_base_arguments(parser: argparse.ArgumentParser):
     parser.add_argument(
         "-ln",
         "--layer_norm",
-        help="Whether to use layer normalization.",
-        default=False,
-        action="store_true",
+        help="Layer norm for (conv, fc) layers.",
+        nargs=2,
+        type=lambda x: x.lower() in ("1", "true"),
+        default=[False, False],
     )
     parser.add_argument(
         "--gap",
@@ -180,6 +181,36 @@ def add_base_arguments(parser: argparse.ArgumentParser):
         help="Whether to use Prioritized Experience Replay.",
         default=False,
         action="store_true",
+    )
+    parser.add_argument(
+        "--low_scale",
+        help="Whether to use low-scale images of 42 x 42 instead of 84 x 84 pixels.",
+        default=False,
+        action="store_true",
+    )
+    parser.add_argument(
+        "--conv2",
+        help="Whether to use 3 Convolutional Layers",
+        default=False,
+        action="store_true",
+    )
+    parser.add_argument(
+        "--fc1",
+        help="Whether to use only one FC layer after Conv layers, mapping directly to actions",
+        default=False,
+        action="store_true",
+    )
+    parser.add_argument(
+        "--n_frame_stack",
+        help="Number of ALE frames to stack in RB sample.",
+        default=4,
+        type=int,
+    )
+    parser.add_argument(
+        "--n_frame_skip",
+        help="Number of ALE frames to skip before receiving a sample.",
+        default=4,
+        type=int,
     )
 
 

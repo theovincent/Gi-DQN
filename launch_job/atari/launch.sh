@@ -14,17 +14,50 @@ ARCHITECTURE_TYPE="cnn"  # cnn impala
 GAP=1 # 0 1
 UPDATE_HORIZON=1  # 1 3
 PER=0  # 0 1
-LAYER_NORM=1  # 0 1
+
+
+LAYER_NORM_CONV=1 # 0 1
+LAYER_NORM_FC=1 # 0 1
+
 TARGET_UPDATE_PERIOD=1500
 LINEAR_HEADS=1 # 0 1
 WEIGHT_DECAY=1
 N_BELLMAN_ITERATIONS=5
 DISABLE_WANDB=0 # 0 1
 
+#Architecture
+CONV2=0 # 0 1, whether to use 3 convolutional layers, when true the first 3 entries of features are Conv Layers
+FC1=0 # 0 1, whether to use only one FC layer to map directly to actions
+
+# Atari
+LOW_SCALE=0 # 0 1  whether to use 42 x 42 pixels instead of 84 x 84
+FRAME_STACK=2
+FRAME_SKIP=4
+
 PLATFORM="cluster/cluster"  # cluster/cluster local/local
 
 CUSTOM_TAG="stack2_skip4_pxl42_smaller_arch"
-CUSTOM_TAG="${CUSTOM_TAG}_RB_${RB}_N_INIT_SMPL_${N_INIT_SMPL}_NE_${NE}_NTSPE_${NTSPE}_LR_${LR}"
+CUSTOM_TAG="${CUSTOM_TAG}_RB_${RB}_NE_${NE}_NTSPE_${NTSPE}_LR_${LR}"
+
+if [ $LOW_SCALE == 1 ]
+then
+  SHARED_ARGS="$SHARED_ARGS --low_scale"
+fi
+if [ $CONV2 == 1 ]
+then
+  SHARED_ARGS="$SHARED_ARGS --conv2"
+  CONVLAYERS="cnv2"
+else
+  CONVLAYERS="cnv3"
+fi
+if [ $FC1 == 1 ]
+then
+  SHARED_ARGS="$SHARED_ARGS --fc1"
+  FCLAYERS="fc1"
+else
+  FCLAYERS="fc2"
+fi
+
 
 if [ $ARCHITECTURE_TYPE == "cnn" ]
 then
@@ -48,18 +81,14 @@ then
     SHARED_ARGS="$SHARED_ARGS --per"
     ADDPER="+PER"
 fi
-if [ $LAYER_NORM == 1 ]
-then
-    SHARED_ARGS="$SHARED_ARGS --layer_norm"
-fi
 if [ $DISABLE_WANDB == 1 ]
 then
     SHARED_ARGS="$SHARED_ARGS --disable_wandb"
 fi
 
 SHARED_ARGS="$SHARED_ARGS --target_update_period $TARGET_UPDATE_PERIOD --architecture_type $ARCHITECTURE_TYPE \
-    --update_to_data $UPDATE_TO_DATA --update_horizon $UPDATE_HORIZON"
-SHARED_NAME="${CUSTOM_TAG}_LN${LAYER_NORM}_${ARCHITECTURE_TYPE}${ADDGAP}${ADDPER}_UTD${UPDATE_TO_DATA}_NSTEP${UPDATE_HORIZON}"
+    --update_to_data $UPDATE_TO_DATA --update_horizon $UPDATE_HORIZON --n_frame_stack $FRAME_STACK --n_frame_skip $FRAME_SKIP --layer_norm $LAYER_NORM_CONV $LAYER_NORM_FC"
+SHARED_NAME="${CUSTOM_TAG}_LS${LOW_SCALE}_ST${FRAME_STACK}_SK${FRAME_SKIP}_${CONVLAYERS}_${FCLAYERS}_LN${LAYER_NORM_CONV}${LAYER_NORM_FC}_${ARCHITECTURE_TYPE}${ADDGAP}${ADDPER}_UTD${UPDATE_TO_DATA}_NSTEP${UPDATE_HORIZON}"
 
 DQN_ARGS="--experiment_name L2_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME}"
 launch_job/atari/${PLATFORM}_dqn.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $DQN_ARGS

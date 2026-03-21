@@ -31,9 +31,12 @@ class Head(nn.Module):
     n_actions: int
     initializer: nn.initializers.Initializer
     layer_norm: bool
+    fc1: bool
 
     @nn.compact
     def __call__(self, x):
+        if self.fc1:
+            return nn.Dense(self.n_actions, kernel_init=self.initializer)(x)
         if self.features is not None:
             x = nn.Dense(self.features, kernel_init=self.initializer)(x)
             if self.layer_norm:
@@ -55,55 +58,63 @@ def make_heads(n_heads):
 class DQNNet(nn.Module):
     features: Sequence[int]
     architecture_type: str
-    layer_norm: bool
+    layer_norm: tuple[bool, bool]
     gap: bool
     linear_heads: bool
     n_actions: int
     n_heads: int
     n_h_heads: int
+    low_scale: bool
+    conv2: bool
+    fc1: bool
 
     @nn.compact
     def __call__(self, x):
         if self.architecture_type == "cnn":
             initializer = nn.initializers.xavier_uniform()
-            idx_feature_start = 3
-            x = nn.Conv(features=self.features[0], kernel_size=(8, 8), strides=(4, 4), kernel_init=initializer)(
-                jnp.array(x, ndmin=4) / 255.0
-            )
-            if self.layer_norm:
+            idx_feature_start = 3 if not self.conv2 else 2
+            first_kernel, first_stride = ((4, 4), (2, 2)) if self.low_scale else ((8, 8), (4, 4))
+            x = nn.Conv(
+                features=self.features[0], kernel_size=first_kernel, strides=first_stride, kernel_init=initializer
+            )(jnp.array(x, ndmin=4) / 255.0)
+            if self.layer_norm[0]:
                 x = nn.LayerNorm()(x)
             x = nn.relu(x)
 
             x = nn.Conv(features=self.features[1], kernel_size=(4, 4), strides=(2, 2), kernel_init=initializer)(x)
-            if self.layer_norm:
+            if self.layer_norm[0]:
                 x = nn.LayerNorm()(x)
             x = nn.relu(x)
-            x = nn.Conv(features=self.features[2], kernel_size=(3, 3), strides=(1, 1), kernel_init=initializer)(x)
-            if self.layer_norm:
-                x = nn.LayerNorm()(x)
-            x = nn.relu(x)
+
+            if not self.conv2:
+                x = nn.Conv(features=self.features[2], kernel_size=(3, 3), strides=(1, 1), kernel_init=initializer)(x)
+                if self.layer_norm[0]:
+                    x = nn.LayerNorm()(x)
+                x = nn.relu(x)
             if self.gap:
                 x = jnp.mean(x, axis=(1, 2))
             else:
                 x = x.reshape((x.shape[0], -1))
         elif self.architecture_type == "impala":
-            initializer = nn.initializers.xavier_uniform()
-            idx_feature_start = 3
-            x = Stack(self.features[0])(jnp.array(x, ndmin=4) / 255.0)
-            x = Stack(self.features[1])(x)
-            x = nn.relu(Stack(self.features[2])(x))
-            if self.gap:
-                x = jnp.mean(x, axis=(1, 2))
-            else:
-                x = x.reshape((x.shape[0], -1))
+            raise NotImplementedError
+            # initializer = nn.initializers.xavier_uniform()
+            # idx_feature_start = 3
+            # x = Stack(self.features[0])(jnp.array(x, ndmin=4) / 255.0)
+            # x = Stack(self.features[1])(x)
+            # x = nn.relu(Stack(self.features[2])(x))
+            # if self.gap:
+            #     x = jnp.mean(x, axis=(1, 2))
+            # else:
+            #     x = x.reshape((x.shape[0], -1))
         elif self.architecture_type == "fc":
-            initializer = nn.initializers.lecun_normal()
-            idx_feature_start = 0
-        x = jnp.squeeze(x)
+            raise NotImplementedError
+            # initializer = nn.initializers.lecun_normal()
+            # idx_feature_start = 0
 
+        x = jnp.squeeze(x)
         for idx_layer in range(idx_feature_start, len(self.features) - 1 + int(self.linear_heads)):
             x = nn.Dense(self.features[idx_layer], kernel_init=initializer)(x)
-            if self.layer_norm:
+            if self.layer_norm[1]:
                 x = nn.LayerNorm()(x)
             x = nn.relu(x)
 
@@ -112,18 +123,19 @@ class DQNNet(nn.Module):
                 None if self.linear_heads else self.features[-1],
                 self.n_actions,
                 initializer,
-                self.layer_norm,
+                self.layer_norm[1],
+                self.fc1,
                 name="q_heads",
             )(x)
         else:
             if not self.linear_heads:
                 q_vals = make_heads(self.n_heads)(
-                    self.features[-1], self.n_actions, initializer, self.layer_norm, name="q_heads"
+                    self.features[-1], self.n_actions, initializer, self.layer_norm[1], self.fc1, name="q_heads"
                 )(x)
             else:
-                q_vals = Head(None, self.n_heads * self.n_actions, initializer, False, name="q_heads")(x).reshape(
-                    (self.n_heads, self.n_actions)
-                )
+                q_vals = Head(None, self.n_heads * self.n_actions, initializer, False, self.fc1, name="q_heads")(
+                    x
+                ).reshape((self.n_heads, self.n_actions))
 
         if self.n_h_heads == 0:
             return q_vals
@@ -132,7 +144,8 @@ class DQNNet(nn.Module):
                 None if self.linear_heads else self.features[-1],
                 self.n_actions,
                 initializer,
-                self.layer_norm,
+                self.layer_norm[1],
+                self.fc1,
                 name="h_heads",
             )(jax.lax.stop_gradient(x))
             return q_vals, h_vals
@@ -142,11 +155,12 @@ class DQNNet(nn.Module):
                     None if self.linear_heads else self.features[-1],
                     self.n_actions,
                     initializer,
-                    self.layer_norm,
+                    self.layer_norm[1],
+                    self.fc1,
                     name="h_heads",
                 )(jax.lax.stop_gradient(x))
             else:
-                h_vals = Head(None, self.n_h_heads * self.n_actions, initializer, False, name="h_heads")(
+                h_vals = Head(None, self.n_h_heads * self.n_actions, initializer, False, fc1=self.fc1, name="h_heads")(
                     jax.lax.stop_gradient(x)
                 ).reshape((self.n_h_heads, self.n_actions))
             return q_vals, h_vals
