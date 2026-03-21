@@ -16,15 +16,16 @@ UPDATE_HORIZON=1  # 1 3
 PER=0  # 0 1
 
 #########################
-LAYER_NORM_CONV=1 # 0 1
+LAYER_NORM_CONV=0 # 0 1
 LAYER_NORM_FC=1 # 0 1
 
 #Architecture
-CONV2=0 # 0 1, whether to use 3 convolutional layers, when true the first 3 entries of features are Conv Layers
+CONV2=1 # 0 1, whether to use 3 convolutional layers, when true the first 3 entries of features are Conv Layers
 FC1=0 # 0 1, whether to use only one FC layer to map directly to actions
 if [ $ARCHITECTURE_TYPE == "cnn" ]
 then
-    SHARED_ARGS="$SHARED_ARGS --features 16 16 16 32"
+    SHARED_ARGS="$SHARED_ARGS --features 64 128 128"
+    ARCH_TAG="F_c32_c64_f128"
 else
     SHARED_ARGS="$SHARED_ARGS --features 32 64 64 512"
 fi
@@ -87,7 +88,7 @@ CUSTOM_TAG="RB_${RB}_NE_${NE}_NTSPE_${NTSPE}_LR_${LR}"
 
 SHARED_ARGS="$SHARED_ARGS --target_update_period $TARGET_UPDATE_PERIOD --architecture_type $ARCHITECTURE_TYPE \
     --update_to_data $UPDATE_TO_DATA --update_horizon $UPDATE_HORIZON --n_frame_stack $FRAME_STACK --n_frame_skip $FRAME_SKIP --layer_norm $LAYER_NORM_CONV $LAYER_NORM_FC"
-SHARED_NAME="LS${LOW_SCALE}_ST${FRAME_STACK}_SK${FRAME_SKIP}_${CONVLAYERS}_${FCLAYERS}_LN${LAYER_NORM_CONV}${LAYER_NORM_FC}_${ARCHITECTURE_TYPE}${ADDGAP}${ADDPER}_UTD${UPDATE_TO_DATA}_NSTEP${UPDATE_HORIZON}_${CUSTOM_TAG}"
+SHARED_NAME="LS${LOW_SCALE}_ST${FRAME_STACK}_SK${FRAME_SKIP}_${ARCH_TAG}_${CONVLAYERS}_${FCLAYERS}_LN${LAYER_NORM_CONV}${LAYER_NORM_FC}_${ARCHITECTURE_TYPE}${ADDGAP}${ADDPER}_UTD${UPDATE_TO_DATA}_NSTEP${UPDATE_HORIZON}_${CUSTOM_TAG}"
 
 DQN_ARGS="--experiment_name L2_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME}"
 launch_job/atari/${PLATFORM}_dqn.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $DQN_ARGS
@@ -101,4 +102,4 @@ fi
 
 GIDQNSHARED_ARGS="--n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY"
 GIDQNSHARED_ARGS="$GIDQNSHARED_ARGS --experiment_name L2_K${N_BELLMAN_ITERATIONS}_WD${WEIGHT_DECAY}_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME}"
-launch_job/atari/${PLATFORM}_gidqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $GIDQNSHARED_ARGS
+#launch_job/atari/${PLATFORM}_gidqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $GIDQNSHARED_ARGS
