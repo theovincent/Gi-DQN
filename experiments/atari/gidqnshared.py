@@ -45,6 +45,9 @@ def run(argvs=sys.argv[1:]):
         target_update_period=p["target_update_period"],
         weight_decay=p["weight_decay"],
         adam_eps=1.5e-4,
+        low_scale=p["low_scale"],
+        conv2=p["conv2"],
+        fc1=p["fc1"],
     )
     train(train_key, p, agent, env, rb)
 
