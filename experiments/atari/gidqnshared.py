@@ -18,7 +18,12 @@ def run(argvs=sys.argv[1:]):
 
     q_key, train_key = jax.random.split(jax.random.PRNGKey(p["seed"]))
 
-    env = AtariEnv(name=p["experiment_name"].split("_")[-1], n_stacked_frames=2, n_skipped_frames=4)
+    env = AtariEnv(
+        name=p["experiment_name"].split("_")[-1],
+        state_height_width=(42, 42) if p["low_scale"] else (84, 84),
+        n_stacked_frames=p["n_frame_stack"],
+        n_skipped_frames=p["n_frame_skip"],
+    )
     rb = ReplayBuffer(
         sampling_distribution=Prioritized(p["seed"], p["replay_buffer_capacity"]) if p["per"] else Uniform(p["seed"]),
         batch_size=p["batch_size"],
