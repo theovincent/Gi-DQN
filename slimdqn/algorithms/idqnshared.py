@@ -37,7 +37,7 @@ class iDQNShared:
         n_bellman_iterations: int,
         features: list,
         architecture_type: str,
-        layer_norm: bool,
+        layer_norm: tuple[bool, bool],
         gap: bool,
         linear_heads: bool,
         learning_rate: float,
@@ -46,6 +46,9 @@ class iDQNShared:
         update_to_data: int,
         target_update_period: int,
         adam_eps: float = 1e-8,
+        low_scale: bool = False,
+        conv2: bool = False,
+        fc1: bool = False,
     ):
         self.n_actions = n_actions
         self.n_bellman_iterations = n_bellman_iterations
@@ -58,9 +61,22 @@ class iDQNShared:
             n_actions,
             n_heads=self.n_bellman_iterations,
             n_h_heads=0,
+            low_scale=low_scale,
+            conv2=conv2,
+            fc1=fc1,
         )
         self.root_network = DQNNet(
-            features, architecture_type, layer_norm, gap, linear_heads, n_actions, n_heads=1, n_h_heads=0
+            features,
+            architecture_type,
+            layer_norm,
+            gap,
+            linear_heads,
+            n_actions,
+            n_heads=1,
+            n_h_heads=0,
+            low_scale=low_scale,
+            conv2=conv2,
+            fc1=fc1,
         )
 
         # initialize 1 network with K heads

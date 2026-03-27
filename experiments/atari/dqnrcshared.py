@@ -18,7 +18,12 @@ def run(argvs=sys.argv[1:]):
 
     q_key, train_key = jax.random.split(jax.random.PRNGKey(p["seed"]))
 
-    env = AtariEnv(p["experiment_name"].split("_")[-1])
+    env = AtariEnv(
+        name=p["experiment_name"].split("_")[-1],
+        state_height_width=(42, 42) if p["low_scale"] else (84, 84),
+        n_stacked_frames=p["n_frame_stack"],
+        n_skipped_frames=p["n_frame_skip"],
+    )
     rb = ReplayBuffer(
         sampling_distribution=Prioritized(p["seed"], p["replay_buffer_capacity"]) if p["per"] else Uniform(p["seed"]),
         batch_size=p["batch_size"],
@@ -26,7 +31,7 @@ def run(argvs=sys.argv[1:]):
         update_horizon=p["update_horizon"],
         gamma=p["gamma"],
         clipping=lambda x: np.clip(x, -1, 1),
-        stack_size=4,
+        stack_size=env.n_stacked_frames,
     )
     agent = DQNRCShared(
         q_key,
@@ -44,6 +49,9 @@ def run(argvs=sys.argv[1:]):
         target_update_period=p["target_update_period"],
         weight_decay=p["weight_decay"],
         adam_eps=1.5e-4,
+        low_scale=p["low_scale"],
+        conv2=p["conv2"],
+        fc1=p["fc1"],
     )
     train(train_key, p, agent, env, rb)
 

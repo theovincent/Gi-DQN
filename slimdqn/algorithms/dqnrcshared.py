@@ -17,7 +17,7 @@ class DQNRCShared:
         n_actions,
         features: list,
         architecture_type: str,
-        layer_norm: bool,
+        layer_norm: tuple[bool, bool],
         gap: bool,
         linear_heads: bool,
         learning_rate: float,
@@ -27,10 +27,23 @@ class DQNRCShared:
         target_update_period: int,
         weight_decay: float,
         adam_eps: float = 1e-8,
+        low_scale: bool = False,
+        conv2: bool = False,
+        fc1: bool = False,
     ):
         self.n_actions = n_actions
         self.network = DQNNet(
-            features, architecture_type, layer_norm, gap, linear_heads, n_actions, n_heads=1, n_h_heads=1
+            features,
+            architecture_type,
+            layer_norm,
+            gap,
+            linear_heads,
+            n_actions,
+            n_heads=1,
+            n_h_heads=1,
+            low_scale=low_scale,
+            conv2=conv2,
+            fc1=fc1,
         )
 
         # initialize online network
