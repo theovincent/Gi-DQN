@@ -73,7 +73,9 @@ class DQNNet(nn.Module):
         if self.architecture_type == "cnn":
             initializer = nn.initializers.xavier_uniform()
             idx_feature_start = 3 if not self.conv2 else 2
-            first_kernel, first_stride = ((4, 4), (2, 2)) if self.low_scale else ((8, 8), (4, 4))
+            first_kernel, first_stride = (
+                ((5, 5), (1, 1)) if self.low_scale else ((8, 8), (4, 4))
+            )  # for 42 x 42 pxl: ((4, 4), (2, 2))
             x = nn.Conv(
                 features=self.features[0], kernel_size=first_kernel, strides=first_stride, kernel_init=initializer
             )(jnp.array(x, ndmin=4) / 255.0)
