@@ -199,6 +199,7 @@ def add_base_arguments(parser: argparse.ArgumentParser):
         "--n_fc",
         help="Number of FC layers after Conv layers, counting also FC mapping to actions. Min=1, Max=2.",
         type=int,
+        default=2,
         choices=range(1, 3),
     )
     parser.add_argument(
