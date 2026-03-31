@@ -48,8 +48,8 @@ def run(argvs=sys.argv[1:]):
         target_update_period=p["target_update_period"],
         adam_eps=1.5e-4,
         low_scale=p["low_scale"],
-        n_conv=p["conv"],
-        n_fc=p["fc"],
+        conv=p["n_conv"],
+        fc=p["n_fc"],
     )
     train(train_key, p, agent, env, rb)
 
