@@ -26,8 +26,8 @@ class DQN:
         target_update_period: int,
         adam_eps: float = 1e-8,
         low_scale: bool = False,
-        conv2: bool = False,
-        fc1: bool = False,
+        conv: int = 3,
+        fc: int = 1,
     ):
         self.network = DQNNet(
             features,
@@ -39,8 +39,8 @@ class DQN:
             n_heads=1,
             n_h_heads=0,
             low_scale=low_scale,
-            conv2=conv2,
-            fc1=fc1,
+            conv=conv,
+            fc=fc,
         )
         self.params = self.network.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
 

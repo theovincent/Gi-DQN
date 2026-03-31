@@ -189,16 +189,17 @@ def add_base_arguments(parser: argparse.ArgumentParser):
         action="store_true",
     )
     parser.add_argument(
-        "--conv2",
-        help="Whether to use 3 Convolutional Layers",
-        default=False,
-        action="store_true",
+        "--n_conv",
+        help="Number of Convolutional Layers. Min=1, Max=3. Ignored when architecture other than CNN chosen.",
+        default=3,
+        type=int,
+        choices=range(1, 4),
     )
     parser.add_argument(
-        "--fc1",
-        help="Whether to use only one FC layer after Conv layers, mapping directly to actions",
-        default=False,
-        action="store_true",
+        "--n_fc",
+        help="Number of FC layers after Conv layers, counting also FC mapping to actions. Min=1, Max=2.",
+        type=int,
+        choices=range(1, 3),
     )
     parser.add_argument(
         "--n_frame_stack",

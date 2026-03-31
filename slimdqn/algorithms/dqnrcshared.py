@@ -28,8 +28,8 @@ class DQNRCShared:
         weight_decay: float,
         adam_eps: float = 1e-8,
         low_scale: bool = False,
-        conv2: bool = False,
-        fc1: bool = False,
+        conv: int = 3,
+        fc: int = 1,
     ):
         self.n_actions = n_actions
         self.network = DQNNet(
@@ -42,8 +42,8 @@ class DQNRCShared:
             n_heads=1,
             n_h_heads=1,
             low_scale=low_scale,
-            conv2=conv2,
-            fc1=fc1,
+            conv=conv,
+            fc=fc,
         )
 
         # initialize online network
