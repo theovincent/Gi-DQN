@@ -51,8 +51,8 @@ class GiDQNShared:
         weight_decay: float,
         adam_eps: float = 1e-8,
         low_scale: bool = False,
-        conv: int = 3,
-        fc: int = 1,
+        n_conv: int = 3,
+        n_fc: int = 1,
     ):
         self.n_bellman_iterations = n_bellman_iterations
         self.n_actions = n_actions
@@ -67,8 +67,8 @@ class GiDQNShared:
             n_heads=self.n_bellman_iterations,
             n_h_heads=self.n_bellman_iterations - 1,
             low_scale=low_scale,
-            conv=conv,
-            fc=fc,
+            n_conv=n_conv,
+            n_fc=n_fc,
         )
         self.root_network = DQNNet(
             features,
@@ -80,8 +80,8 @@ class GiDQNShared:
             n_heads=1,
             n_h_heads=0,
             low_scale=low_scale,
-            conv=conv,
-            fc=fc,
+            n_conv=n_conv,
+            n_fc=n_fc,
         )
 
         # initialize 1 network with K q-heads and K OR K-1 h-heads

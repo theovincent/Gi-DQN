@@ -31,13 +31,13 @@ class Head(nn.Module):
     n_actions: int
     initializer: nn.initializers.Initializer
     layer_norm: bool
-    fc: int
+    n_fc: int
 
     @nn.compact
     def __call__(self, x):
-        if self.fc == 1:
+        if self.n_fc == 1:
             return nn.Dense(self.n_actions, kernel_init=self.initializer)(x)
-        elif self.fc == 2:
+        elif self.n_fc == 2:
             if self.features is not None:
                 x = nn.Dense(self.features, kernel_init=self.initializer)(x)
                 if self.layer_norm:
@@ -66,14 +66,14 @@ class DQNNet(nn.Module):
     n_heads: int
     n_h_heads: int
     low_scale: bool
-    conv: int
-    fc: int
+    n_conv: int
+    n_fc: int
 
     @nn.compact
     def __call__(self, x):
         if self.architecture_type == "cnn":
             initializer = nn.initializers.xavier_uniform()
-            idx_feature_start = self.conv
+            idx_feature_start = self.n_conv
             first_kernel, first_stride = (
                 ((5, 5), (1, 1)) if self.low_scale else ((4, 4), (2, 2))  # 84 x 84 pixel: ((8, 8), (4, 4))
             )  # for 42 x 42 pxl: ((4, 4), (2, 2))
@@ -83,13 +83,13 @@ class DQNNet(nn.Module):
             if self.layer_norm[0]:
                 x = nn.LayerNorm()(x)
             x = nn.relu(x)
-            if self.conv > 1:
+            if self.n_conv > 1:
                 x = nn.Conv(features=self.features[1], kernel_size=(4, 4), strides=(2, 2), kernel_init=initializer)(x)
                 if self.layer_norm[0]:
                     x = nn.LayerNorm()(x)
                 x = nn.relu(x)
 
-            if self.conv > 2:
+            if self.n_conv > 2:
                 x = nn.Conv(features=self.features[2], kernel_size=(3, 3), strides=(1, 1), kernel_init=initializer)(x)
                 if self.layer_norm[0]:
                     x = nn.LayerNorm()(x)
@@ -127,16 +127,16 @@ class DQNNet(nn.Module):
                 self.n_actions,
                 initializer,
                 self.layer_norm[1],
-                self.fc,
+                self.n_fc,
                 name="q_heads",
             )(x)
         else:
             if not self.linear_heads:
                 q_vals = make_heads(self.n_heads)(
-                    self.features[-1], self.n_actions, initializer, self.layer_norm[1], self.fc, name="q_heads"
+                    self.features[-1], self.n_actions, initializer, self.layer_norm[1], self.n_fc, name="q_heads"
                 )(x)
             else:
-                q_vals = Head(None, self.n_heads * self.n_actions, initializer, False, self.fc, name="q_heads")(
+                q_vals = Head(None, self.n_heads * self.n_actions, initializer, False, self.n_fc, name="q_heads")(
                     x
                 ).reshape((self.n_heads, self.n_actions))
 
@@ -148,7 +148,7 @@ class DQNNet(nn.Module):
                 self.n_actions,
                 initializer,
                 self.layer_norm[1],
-                self.fc,
+                self.n_fc,
                 name="h_heads",
             )(jax.lax.stop_gradient(x))
             return q_vals, h_vals
@@ -159,11 +159,11 @@ class DQNNet(nn.Module):
                     self.n_actions,
                     initializer,
                     self.layer_norm[1],
-                    self.fc,
+                    self.n_fc,
                     name="h_heads",
                 )(jax.lax.stop_gradient(x))
             else:
-                h_vals = Head(None, self.n_h_heads * self.n_actions, initializer, False, fc=self.fc, name="h_heads")(
+                h_vals = Head(None, self.n_h_heads * self.n_actions, initializer, False, fc=self.n_fc, name="h_heads")(
                     jax.lax.stop_gradient(x)
                 ).reshape((self.n_h_heads, self.n_actions))
             return q_vals, h_vals
