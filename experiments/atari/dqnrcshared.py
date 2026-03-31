@@ -50,8 +50,8 @@ def run(argvs=sys.argv[1:]):
         weight_decay=p["weight_decay"],
         adam_eps=1.5e-4,
         low_scale=p["low_scale"],
-        n_conv=p["n_conv"],
-        n_fc=p["n_fc"],
+        n_conv=p["conv"],
+        n_fc=p["fc"],
     )
     train(train_key, p, agent, env, rb)
 
