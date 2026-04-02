@@ -28,7 +28,7 @@ SHARED_ARGS="$SHARED_ARGS --features 16 128"
 ARCHTAG="F_c16_f128"
 
 # Atari frames
-LOW_SCALE=1 # 1  whether to use 42 x 42 pixels instead of 84 x 84
+LOW_SCALE=1 # 1  whether to use 10 x 10 pixels insted of 42 x 42
 FRAME_STACK=2
 FRAME_SKIP=4
 #########################
