@@ -77,8 +77,7 @@ class DQNNet(nn.Module):
             first_kernel, first_stride = (
                 (3, 3), (1, 1)) if self.low_scale else ((4, 4), (2, 2)) # 84 x 84 pixel: ((8, 8), (4, 4))
                 )  # for 42 x 42 pxl: ((4, 4), (2, 2)); for 10 x 10 pixels: ((3, 3), (1, 1)); for 24 x 24 pixels: ((5,5), (1,1))
-            x = nn.Conv(
-                features=self.features[0], kernel_size=first_kernel, strides=first_stride, kernel_init=initializer
+            x = nn.Conv(features=self.features[0], kernel_size=first_kernel, strides=first_stride, kernel_init=initializer
             )(jnp.array(x, ndmin=4) / 255.0)
             if self.layer_norm[0]:
                 x = nn.LayerNorm()(x)
