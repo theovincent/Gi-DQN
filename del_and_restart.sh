@@ -2,11 +2,13 @@
 
 
 
-seeds=(1)
-game="BattleZone"
-algo="idqnshared"   # dqn | gidqnshared | idqnshared | dqnrcshared
+
+game="DoubleDunk"
+algo="dqn"   # dqn | gidqnshared | idqnshared | dqnrcshared
+tup=600
+
 LR=10e-5
-tup=100             
+seeds=(1)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LAUNCH_SH="${SCRIPT_DIR}/launch_job/atari/launch_restart.sh"
