@@ -48,7 +48,7 @@ def train(key: jax.random.PRNGKey, p: dict, agent: DQN, env, rb: ReplayBuffer):
                 agent.update_online_params(n_training_steps, rb)
                 agent.update_target_params(n_training_steps)
 
-                if n_training_steps % 50_000 == 0:
+                if n_training_steps % 200_000 == 0:
                     p["wandb"].log(agent.logs)
 
         end_epoch = time.time()
