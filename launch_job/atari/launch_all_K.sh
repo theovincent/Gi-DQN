@@ -22,16 +22,15 @@ ARCHTAG="F_c16_f128"
 LOW_SCALE=1 # 1  whether to use 10 x 10 pixels insted of 42 x 42
 FRAME_STACK=2
 FRAME_SKIP=4
-N_BELLMAN_ITERATIONS=5 # 5 10 20 50 100
 #########################
 LINEAR_HEADS=1 # 1
+WEIGHT_DECAY=1 # 0.01 1 10 100
 DISABLE_WANDB=0 # 0 1
 PLATFORM="cluster/cluster"  # cluster/cluster local/local
 
 for GAME in BattleZone DoubleDunk NameThisGame Phoenix Qbert; do
 for LR in 1e-5 25e-5 100e-5; do #out: 10e-5 50e-5
-for WEIGHT_DECAY in 0.01 1 10 100; do #WEIGHT_DECAY=1 # 0.01 1 10 100
-
+for N_BELLMAN_ITERATIONS in 10 20 50 100; do #N_BELLMAN_ITERATIONS=5 # 5 10 20 50 100
 
     CUSTOM_TAG="LR${LR}_NE${NE}"
     ADDGAP=""
@@ -74,9 +73,9 @@ for WEIGHT_DECAY in 0.01 1 10 100; do #WEIGHT_DECAY=1 # 0.01 1 10 100
     GIDQNSHARED_ARGS="$GIDQNSHARED_ARGS --experiment_name L2_K${N_BELLMAN_ITERATIONS}_WD${WEIGHT_DECAY}_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME}"
     launch_job/atari/${PLATFORM}_gidqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $GIDQNSHARED_ARGS
 
-    DQNRCSHARED_ARGS="--weight_decay $WEIGHT_DECAY"
-    DQNRCSHARED_ARGS="$DQNRCSHARED_ARGS --experiment_name L2_WD${WEIGHT_DECAY}_${SHARED_NAME}_${GAME}"
-    launch_job/atari/${PLATFORM}_dqnrcshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $DQNRCSHARED_ARGS
+    IDQNSHARED_ARGS="--n_bellman_iterations $N_BELLMAN_ITERATIONS --target_update_period $TARGET_UPDATE_PERIOD"
+    IDQNSHARED_ARGS="$IDQNSHARED_ARGS --experiment_name L2_K${N_BELLMAN_ITERATIONS}_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME}"
+    launch_job/atari/${PLATFORM}_idqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $IDQNSHARED_ARGS
 
 done
 done
