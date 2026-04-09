@@ -1,21 +1,20 @@
-TARGET_UPDATE_PERIOD=250 # 100 250 600 1500 4000
+TARGET_UPDATE_PERIOD=600 # 100  600  4000   # out: 250  1500
 
 NE=30
 RB=50_000
 N_INIT_SMPL=10_000
 NTSPE=50_000
 
-UPDATE_TO_DATA=1  # 0.25 1 2 4 8
 ARCHITECTURE_TYPE="cnn"  # cnn impala
-GAP=0  # 0 
+GAP=0  # 0
 UPDATE_HORIZON=1  # 1
-PER=0  # 0 
+PER=0  # 0
 ########################
 LAYER_NORM_CONV=1 # 0 1
 LAYER_NORM_FC=1 # 0 1
 #Architecture
 N_CONV=1 # 1; n conv layers min 1, max 3
-N_FC=2 # 2;  n fc layers, min 1 
+N_FC=2 # 2;  n fc layers, min 1
 FEATURES="16 128"
 ARCHTAG="F_c16_f128"
 # Atari frames
@@ -24,13 +23,15 @@ FRAME_STACK=2
 FRAME_SKIP=4
 #########################
 LINEAR_HEADS=1 # 1
-WEIGHT_DECAY=1 # 0.01 1 10 100 
+WEIGHT_DECAY=1 # 0.01 1 10 100
 N_BELLMAN_ITERATIONS=5 # 5 10 20 50 100
 DISABLE_WANDB=0 # 0 1
 PLATFORM="cluster/cluster"  # cluster/cluster local/local
 
 for GAME in BattleZone DoubleDunk NameThisGame Phoenix Qbert; do
-for LR in 1e-5 10e-5 25e-5 50e-5 100e-5; do
+for LR in 25e-5; do #out: 1e-5  10e-5 50e-5 100e-5
+for UPDATE_TO_DATA in 0.25 2 4; do #UPDATE_TO_DATA=1  # 0.25 1 2 4 8  ------> 1 already done through prev runs
+
 
     CUSTOM_TAG="LR${LR}_NE${NE}"
     ADDGAP=""
@@ -64,8 +65,8 @@ for LR in 1e-5 10e-5 25e-5 50e-5 100e-5; do
 
     SHARED_NAME="LS${LOW_SCALE}_ST${FRAME_STACK}_SK${FRAME_SKIP}_ncnv${N_CONV}_nfc${N_FC}_${ARCHTAG}_LN${LAYER_NORM_CONV}${LAYER_NORM_FC}${ARCHITECTURE_TYPE}${ADDGAP}${ADDPER}_${CUSTOM_TAG}"
 
-    DQN_ARGS="--experiment_name L2_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME} --target_update_period $TARGET_UPDATE_PERIOD"
-    #launch_job/atari/${PLATFORM}_dqn.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $DQN_ARGS
+    DQN_ARGS="--experiment_name L2_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_UTD${UPDATE_TO_DATA}_${GAME} --target_update_period $TARGET_UPDATE_PERIOD"
+    launch_job/atari/${PLATFORM}_dqn.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $DQN_ARGS
 
     if [ $LINEAR_HEADS == 1 ]; then
         SHARED_ARGS="$SHARED_ARGS --linear_heads"
@@ -73,16 +74,17 @@ for LR in 1e-5 10e-5 25e-5 50e-5 100e-5; do
     fi
 
     GIDQNSHARED_ARGS="--n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY --target_update_period $TARGET_UPDATE_PERIOD"
-    GIDQNSHARED_ARGS="$GIDQNSHARED_ARGS --experiment_name L2_K${N_BELLMAN_ITERATIONS}_WD${WEIGHT_DECAY}_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME}"
-    #launch_job/atari/${PLATFORM}_gidqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $GIDQNSHARED_ARGS
+    GIDQNSHARED_ARGS="$GIDQNSHARED_ARGS --experiment_name L2_K${N_BELLMAN_ITERATIONS}_WD${WEIGHT_DECAY}_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_UTD${UPDATE_TO_DATA}_${GAME}"
+    launch_job/atari/${PLATFORM}_gidqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $GIDQNSHARED_ARGS
 
     IDQNSHARED_ARGS="--n_bellman_iterations $N_BELLMAN_ITERATIONS --target_update_period $TARGET_UPDATE_PERIOD"
-    IDQNSHARED_ARGS="$IDQNSHARED_ARGS --experiment_name L2_K${N_BELLMAN_ITERATIONS}_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME}"
-    #launch_job/atari/${PLATFORM}_idqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $IDQNSHARED_ARGS
+    IDQNSHARED_ARGS="$IDQNSHARED_ARGS --experiment_name L2_K${N_BELLMAN_ITERATIONS}_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_UTD${UPDATE_TO_DATA}_${GAME}"
+    launch_job/atari/${PLATFORM}_idqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $IDQNSHARED_ARGS
 
     DQNRCSHARED_ARGS="--weight_decay $WEIGHT_DECAY"
-    DQNRCSHARED_ARGS="$DQNRCSHARED_ARGS --experiment_name L2_WD${WEIGHT_DECAY}_${SHARED_NAME}_${GAME}"
-    #launch_job/atari/${PLATFORM}_dqnrcshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $DQNRCSHARED_ARGS
+    DQNRCSHARED_ARGS="$DQNRCSHARED_ARGS --experiment_name L2_WD${WEIGHT_DECAY}_${SHARED_NAME}_UTD${UPDATE_TO_DATA}_${GAME}"
+    launch_job/atari/${PLATFORM}_dqnrcshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $DQNRCSHARED_ARGS
 
+done
 done
 done
