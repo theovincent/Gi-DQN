@@ -7,7 +7,7 @@ import numpy as np
 from experiments.base.dqn import train
 from experiments.base.utils import prepare_logs
 from slimdqn.environments.atari import AtariEnv
-from slimdqn.algorithms.isf_idqnshared import ISF_iDQNShared
+from slimdqn.algorithms.ufhisfgidqnshared import UFHISFGiDQNShared
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer
 from slimdqn.sample_collection.samplers import Uniform, Prioritized
 
@@ -33,7 +33,7 @@ def run(argvs=sys.argv[1:]):
         clipping=lambda x: np.clip(x, -1, 1),
         stack_size=env.n_stacked_frames,
     )
-    agent = ISF_iDQNShared(
+    agent = UFHISFGiDQNShared(
         q_key,
         (env.state_height, env.state_width, env.n_stacked_frames),
         env.n_actions,
@@ -47,8 +47,10 @@ def run(argvs=sys.argv[1:]):
         gamma=p["gamma"],
         update_horizon=p["update_horizon"],
         update_to_data=p["update_to_data"],
+        unfreeze_first_head=p["unfreeze_first_head"],
         iterated_shared_features=p["iterated_shared_features"],
         target_update_period=p["target_update_period"],
+        weight_decay=p["weight_decay"],
         adam_eps=1.5e-4,
         low_scale=p["low_scale"],
         n_conv=p["n_conv"],
