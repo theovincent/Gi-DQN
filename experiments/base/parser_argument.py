@@ -226,6 +226,15 @@ def add_n_bellman_iterations(parser: argparse.ArgumentParser):
     )
 
 
+def add_freeze_first_head(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "--unfreeze_first_head",
+        help="Whether the first network should be fixed or not for the duration of a Bellman iteration",
+        action="store_true",
+        default=False,
+    )
+
+
 def add_weight_decay(parser: argparse.ArgumentParser):
     parser.add_argument(
         "-wd",
@@ -276,6 +285,7 @@ def add_idqnshared_arguments(parser: argparse.ArgumentParser):
 def add_gidqn_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
+    add_freeze_first_head(parser)
 
 
 @output_added_arguments

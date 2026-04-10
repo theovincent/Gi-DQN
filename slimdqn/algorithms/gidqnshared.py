@@ -47,6 +47,7 @@ class GiDQNShared:
         gamma: float,
         update_horizon: int,
         update_to_data: int,
+        unfreeze_first_head: bool,
         target_update_period: int,
         weight_decay: float,
         adam_eps: float = 1e-8,
@@ -95,8 +96,16 @@ class GiDQNShared:
             weight_decay=weight_decay,
             mask=jax.tree_util.tree_map_with_path(lambda path, _: "h_heads" in path[1].key, self.params),
         )
+        self.target_optimizer = optax.adamw(
+            learning_rate,
+            eps=adam_eps,
+            weight_decay=weight_decay,
+            mask=jax.tree_util.tree_map_with_path(lambda path, _: "h_heads" in path[1].key, self.params),
+        )
         self.optimizer_state = self.optimizer.init(self.params)
+        self.target_optimizer_state = self.target_optimizer.init(self.target_params)
 
+        self.unfreeze_first_head = unfreeze_first_head
         self.gamma = gamma
         self.update_horizon = update_horizon
         self.update_to_data = update_to_data
@@ -113,8 +122,21 @@ class GiDQNShared:
                 return None
             batch_samples, (sample_keys, importance_weights) = replay_buffer.sample()
 
-            self.params, self.optimizer_state, per_sample_q_losses, per_sample_h_losses, variance = self.learn_on_batch(
-                self.params, self.target_params, self.optimizer_state, batch_samples, importance_weights
+            (
+                self.params,
+                self.target_params,
+                self.optimizer_state,
+                self.target_optimizer_state,
+                per_sample_q_losses,
+                per_sample_h_losses,
+                variance,
+            ) = self.learn_on_batch(
+                self.params,
+                self.target_params,
+                self.optimizer_state,
+                self.target_optimizer_state,
+                batch_samples,
+                importance_weights,
             )
 
             replay_buffer.update(sample_keys, per_sample_q_losses.mean(axis=1) + per_sample_h_losses.mean(axis=1))
@@ -151,16 +173,35 @@ class GiDQNShared:
 
     @partial(jax.jit, static_argnames="self")
     def learn_on_batch(
-        self, params: FrozenDict, target_params: FrozenDict, optimizer_state, batch_samples, importance_weights
+        self,
+        params: FrozenDict,
+        target_params: FrozenDict,
+        optimizer_state,
+        target_optimizer_state,
+        batch_samples,
+        importance_weights,
     ):
-        grad_loss, (per_sample_q_losses, per_sample_h_losses, variance) = jax.grad(self.loss_on_batch, has_aux=True)(
-            params, target_params, batch_samples, importance_weights
-        )
+        (grad_loss_params, grad_loss_target_params), (per_sample_q_losses, per_sample_h_losses, variance) = jax.grad(
+            self.loss_on_batch, argnums=(0, 1), has_aux=True
+        )(params, target_params, batch_samples, importance_weights)
 
-        updates, optimizer_state = self.optimizer.update(grad_loss, optimizer_state, params)
+        updates, optimizer_state = self.optimizer.update(grad_loss_params, optimizer_state, params)
         params = optax.apply_updates(params, updates)
 
-        return params, optimizer_state, per_sample_q_losses, per_sample_h_losses, variance
+        target_updates, target_optimizer_state = self.target_optimizer.update(
+            grad_loss_target_params, target_optimizer_state, target_params
+        )
+        target_params = optax.apply_updates(target_params, target_updates)
+
+        return (
+            params,
+            target_params,
+            optimizer_state,
+            target_optimizer_state,
+            per_sample_q_losses,
+            per_sample_h_losses,
+            variance,
+        )
 
     def loss_on_batch(self, params: FrozenDict, target_params: FrozenDict, samples, importance_weights):
         # vmap to compute the loss for all samples
@@ -180,6 +221,11 @@ class GiDQNShared:
         targets = self.compute_target(next_q_values, sample)
         # (K)
         td_errors = targets - q_values
+
+        if not self.unfreeze_first_head:
+            targets = targets.at[0].set(
+                0.0
+            )  # cut off the gradient flow to the first Q-Network Q_0 by overwriting the first target with a constant if we dont want to unfreeze it
 
         h_loss = h_values * jax.lax.stop_gradient(h_values - td_errors[1:])
 
