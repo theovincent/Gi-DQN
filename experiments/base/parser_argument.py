@@ -293,7 +293,7 @@ def add_idqnshared_arguments(parser: argparse.ArgumentParser):
 
 
 @output_added_arguments
-def add_isf_idqnshared_arguments(parser: argparse.ArgumentParser):
+def add_isfidqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_linear_heads(parser)
     add_iterated_shared_features(parser)
@@ -314,7 +314,7 @@ def add_gidqnshared_arguments(parser: argparse.ArgumentParser):
 
 
 @output_added_arguments
-def add_ufh_isf_gidqnshared_arguments(parser: argparse.ArgumentParser):
+def add_ufhisfgidqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
     add_linear_heads(parser)
