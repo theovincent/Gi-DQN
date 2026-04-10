@@ -235,6 +235,15 @@ def add_freeze_first_head(parser: argparse.ArgumentParser):
     )
 
 
+def add_iterated_shared_features(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "--iterated_shared_features",
+        help="Whether to use only one network instead of a second one for the first target.",
+        action="store_true",
+        default=False,
+    )
+
+
 def add_weight_decay(parser: argparse.ArgumentParser):
     parser.add_argument(
         "-wd",
@@ -268,17 +277,26 @@ def add_dqnrc_arguments(parser: argparse.ArgumentParser):
 def add_dqnrcshared_arguments(parser: argparse.ArgumentParser):
     add_weight_decay(parser)
     add_linear_heads(parser)
+    add_iterated_shared_features(parser)
 
 
 @output_added_arguments
 def add_idqn_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
+    add_iterated_shared_features(parser)
 
 
 @output_added_arguments
 def add_idqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_linear_heads(parser)
+
+
+@output_added_arguments
+def add_isf_idqnshared_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_linear_heads(parser)
+    add_iterated_shared_features(parser)
 
 
 @output_added_arguments
@@ -293,3 +311,12 @@ def add_gidqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
     add_linear_heads(parser)
+
+
+@output_added_arguments
+def add_ufh_isf_gidqnshared_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_weight_decay(parser)
+    add_linear_heads(parser)
+    add_freeze_first_head(parser)
+    add_iterated_shared_features(parser)
