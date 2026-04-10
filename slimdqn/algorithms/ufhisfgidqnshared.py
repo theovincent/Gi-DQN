@@ -102,14 +102,20 @@ class UFHISFGiDQNShared:
             weight_decay=weight_decay,
             mask=jax.tree_util.tree_map_with_path(lambda path, _: "h_heads" in path[1].key, self.params),
         )
-        self.target_optimizer = optax.adamw(
-            learning_rate,
-            eps=adam_eps,
-            weight_decay=weight_decay,
-            mask=jax.tree_util.tree_map_with_path(lambda path, _: "h_heads" in path[1].key, self.params),
-        )
+
+        if self.iterated_shared_features:
+            self.target_optimizer = optax.adamw(
+                learning_rate,
+                eps=adam_eps,
+                weight_decay=weight_decay,
+                mask=jax.tree_util.tree_map_with_path(lambda path, _: "h_heads" in path[1].key, self.params),
+            )
+            self.target_optimizer_state = self.target_optimizer.init(self.target_params)
+        else:
+            self.target_optimizer = None
+            self.target_optimizer_state = None
+
         self.optimizer_state = self.optimizer.init(self.params)
-        self.target_optimizer_state = self.target_optimizer.init(self.target_params)
 
         self.gamma = gamma
         self.update_horizon = update_horizon
