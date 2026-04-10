@@ -35,8 +35,8 @@ for UFH in 0 1; do
     CUSTOM_TAG="LR${LR}_NE${NE}"
     ADDGAP=""
     ADDPER=""
-    ISF_TAG=""
-    UFH_TAG=""
+    ISF_TAG="0"
+    UFH_TAG="0"
 
     SHARED_ARGS="--replay_buffer_capacity ${RB} --batch_size 16 --gamma 0.99 --horizon 10_000 \
         --n_initial_samples ${N_INIT_SMPL} --epsilon_end 0.01 --epsilon_duration 100_000 --learning_rate ${LR} \
@@ -69,20 +69,20 @@ for UFH in 0 1; do
     fi
     if [ $ISF == 1 ]; then
         SHARED_ARGS="$SHARED_ARGS --iterated_shared_features"
-        ISF_TAG="_ISF"
+        ISF_TAG="1"
     fi
 
     GIDQNSHARED_ARGS="--n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY --target_update_period $TARGET_UPDATE_PERIOD"
     if [ $UFH == 1 ]; then
         GIDQNSHARED_ARGS="$GIDQNSHARED_ARGS --unfreeze_first_head"
-        UFH_TAG="_UFH"
+        UFH_TAG="1"
     fi
-    GIDQNSHARED_ARGS="$GIDQNSHARED_ARGS --experiment_name L2_K${N_BELLMAN_ITERATIONS}_WD${WEIGHT_DECAY}_${SHARED_NAME}${UFH_TAG}${ISF_TAG}_T${TARGET_UPDATE_PERIOD}_${GAME}"
+    GIDQNSHARED_ARGS="$GIDQNSHARED_ARGS --experiment_name L2_K${N_BELLMAN_ITERATIONS}_UFH${UFH_TAG}_ISF${ISF_TAG}_WD${WEIGHT_DECAY}_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME}"
     launch_job/atari/${PLATFORM}_ufh_isf_gidqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $GIDQNSHARED_ARGS
 
     if [ $UFH == 0 ]; then
         IDQNSHARED_ARGS="--n_bellman_iterations $N_BELLMAN_ITERATIONS --target_update_period $TARGET_UPDATE_PERIOD"
-        IDQNSHARED_ARGS="$IDQNSHARED_ARGS --experiment_name L2_K${N_BELLMAN_ITERATIONS}_${SHARED_NAME}${ISF_TAG}_T${TARGET_UPDATE_PERIOD}_${GAME}"
+        IDQNSHARED_ARGS="$IDQNSHARED_ARGS --experiment_name L2_K${N_BELLMAN_ITERATIONS}_ISF${ISF_TAG}_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME}"
         launch_job/atari/${PLATFORM}_isf_idqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $IDQNSHARED_ARGS
     fi
 
