@@ -83,7 +83,7 @@ for UFH in 0 1; do
     if [ $UFH == 0 ]; then
         IDQNSHARED_ARGS="--n_bellman_iterations $N_BELLMAN_ITERATIONS --target_update_period $TARGET_UPDATE_PERIOD"
         IDQNSHARED_ARGS="$IDQNSHARED_ARGS --experiment_name L2_K${N_BELLMAN_ITERATIONS}_ISF${ISF_TAG}_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME}"
-        launch_job/atari/${PLATFORM}isfidqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $IDQNSHARED_ARGS
+        launch_job/atari/${PLATFORM}_isfidqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $IDQNSHARED_ARGS
     fi
 
 done
