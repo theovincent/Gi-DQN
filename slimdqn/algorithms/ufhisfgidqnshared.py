@@ -94,13 +94,16 @@ class UFHISFGiDQNShared:
         # initialize 1 network with K q-heads and K OR K-1 h-heads
         self.params = self.online_networks.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
         # initialize the target networks
-        self.target_params = set_target_params(self.params, linear_heads, self.n_actions)
+        if not self.iterated_shared_features:
+            self.target_params = set_target_params(self.params, linear_heads, self.n_actions)
+        else:
+            self.target_params = self.params
 
         self.optimizer = optax.adamw(
             learning_rate,
             eps=adam_eps,
             weight_decay=weight_decay,
-            mask=jax.tree_util.tree_map_with_path(lambda path, _: "h_heads" in path[1].key, self.params),
+            mask=jax.tree_util.tree_map_with_path(lambda path, _: "h_heads" in path[1].key, self.target_params),
         )
 
         if self.iterated_shared_features:
