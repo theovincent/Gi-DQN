@@ -253,6 +253,15 @@ def add_weight_decay(parser: argparse.ArgumentParser):
         default=1,
     )
 
+def add_omega(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "-omg",
+        "--omega",
+        help="Temperature for MellowMax function in Target.",
+        type=float,
+        default=1,
+    )
+
 
 def add_linear_heads(parser: argparse.ArgumentParser):
     parser.add_argument(
@@ -279,6 +288,12 @@ def add_dqnrcshared_arguments(parser: argparse.ArgumentParser):
     add_linear_heads(parser)
     add_iterated_shared_features(parser)
 
+@output_added_arguments
+def add_mmdqnrcshared_arguments(parser: argparse.ArgumentParser):
+    add_weight_decay(parser)
+    add_linear_heads(parser)
+    add_iterated_shared_features(parser)
+    add_omega(parser)
 
 @output_added_arguments
 def add_idqn_arguments(parser: argparse.ArgumentParser):
@@ -311,6 +326,13 @@ def add_gidqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
     add_linear_heads(parser)
+
+@output_added_arguments
+def add_mmgidqnshared_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_weight_decay(parser)
+    add_linear_heads(parser)
+    add_omega(parser)
 
 
 @output_added_arguments
