@@ -78,7 +78,7 @@ class DQN:
             self.logs = {
                 "n_training_steps": step,
                 "loss": self.cumulative_loss / (self.target_update_period * self.update_to_data),
-                "variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
+                #"variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
             }
             self.cumulative_loss = 0
             self.cumulative_variance = 0

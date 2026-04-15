@@ -136,8 +136,8 @@ class MMGiDQNShared:
             self.logs = {
                 "n_training_steps": step,
                 "loss": np.mean(self.cumulative_q_losses) / (self.target_update_period * self.update_to_data),
-                "variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
-                "h_loss": np.mean(self.cumulative_h_losses) / (self.target_update_period * self.update_to_data),
+                #"variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
+                #"h_loss": np.mean(self.cumulative_h_losses) / (self.target_update_period * self.update_to_data),
             }
             for idx_network in range(0, min(5, self.n_bellman_iterations)):
                 self.logs[f"networks/{idx_network}_loss"] = self.cumulative_q_losses[idx_network] / (
