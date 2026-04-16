@@ -189,6 +189,13 @@ def add_base_arguments(parser: argparse.ArgumentParser):
         action="store_true",
     )
     parser.add_argument(
+        "--pixels",
+        help="Number of input pixels per dimension. 84 -> 84 x 84.",
+        default=84,
+        type=int,
+    )
+
+    parser.add_argument(
         "--n_conv",
         help="Number of Convolutional Layers. Min=1, Max=3. Ignored when architecture other than CNN chosen.",
         default=3,

@@ -50,7 +50,7 @@ def run(argvs=sys.argv[1:]):
         iterated_shared_features=p["iterated_shared_features"],
         target_update_period=p["target_update_period"],
         adam_eps=1.5e-4,
-        low_scale=p["low_scale"],
+        pixels=p["pixels"],
         n_conv=p["n_conv"],
         n_fc=p["n_fc"],
     )

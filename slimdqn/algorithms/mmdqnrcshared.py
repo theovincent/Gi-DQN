@@ -27,7 +27,7 @@ class MMDQNRCShared:
         target_update_period: int,
         weight_decay: float,
         adam_eps: float = 1e-8,
-        low_scale: bool = False,
+        pixels: int = 84,
         n_conv: int = 3,
         n_fc: int = 1,
         omega: float = 5.0,
@@ -43,7 +43,7 @@ class MMDQNRCShared:
             n_actions,
             n_heads=1,
             n_h_heads=1,
-            low_scale=low_scale,
+            pixels=pixels,
             n_conv=n_conv,
             n_fc=n_fc,
         )
@@ -91,8 +91,8 @@ class MMDQNRCShared:
             self.logs = {
                 "n_training_steps": step,
                 "loss": self.cumulative_q_loss / (self.target_update_period * self.update_to_data),
-                #"variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
-                #"h_loss": self.cumulative_h_loss / (self.target_update_period * self.update_to_data),
+                # "variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
+                # "h_loss": self.cumulative_h_loss / (self.target_update_period * self.update_to_data),
             }
 
             self.cumulative_q_loss = 0

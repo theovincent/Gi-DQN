@@ -46,7 +46,7 @@ class iDQNShared:
         update_to_data: int,
         target_update_period: int,
         adam_eps: float = 1e-8,
-        low_scale: bool = False,
+        pixels: int = 84,
         n_conv: int = 3,
         n_fc: int = 1,
     ):
@@ -61,7 +61,7 @@ class iDQNShared:
             n_actions,
             n_heads=self.n_bellman_iterations,
             n_h_heads=0,
-            low_scale=low_scale,
+            pixels=pixels,
             n_conv=n_conv,
             n_fc=n_fc,
         )
@@ -74,7 +74,7 @@ class iDQNShared:
             n_actions,
             n_heads=1,
             n_h_heads=0,
-            low_scale=low_scale,
+            pixels=pixels,
             n_conv=n_conv,
             n_fc=n_fc,
         )
@@ -120,7 +120,7 @@ class iDQNShared:
             self.logs = {
                 "n_training_steps": step,
                 "loss": np.mean(self.cumulative_losses) / (self.target_update_period * self.update_to_data),
-                #"variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
+                # "variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
             }
             for idx_network in range(0, min(5, self.n_bellman_iterations)):
                 self.logs[f"networks/{idx_network}_loss"] = self.cumulative_losses[idx_network] / (
