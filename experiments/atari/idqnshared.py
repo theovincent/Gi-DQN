@@ -20,7 +20,7 @@ def run(argvs=sys.argv[1:]):
 
     env = AtariEnv(
         name=p["experiment_name"].split("_")[-1],
-        state_height_width=(10, 10) if p["low_scale"] else (42, 42),
+        state_height_width=(p["pixels"], p["pixels"]),
         n_stacked_frames=p["n_frame_stack"],
         n_skipped_frames=p["n_frame_skip"],
     )
