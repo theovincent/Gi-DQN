@@ -79,7 +79,7 @@ class GiDQNShared:
             n_actions,
             n_heads=1,
             n_h_heads=0,
-            pixles=pixels,
+            pixels=pixels,
             n_conv=n_conv,
             n_fc=n_fc,
         )
