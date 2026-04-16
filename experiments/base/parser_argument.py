@@ -197,10 +197,10 @@ def add_base_arguments(parser: argparse.ArgumentParser):
     )
     parser.add_argument(
         "--n_fc",
-        help="Number of FC layers after Conv layers, counting also FC mapping to actions. Min=1, Max=2.",
+        help="Number of FC layers after Conv layers, counting also FC mapping to actions. Min=1, Max=3.",
         type=int,
         default=2,
-        choices=range(1, 3),
+        choices=range(1, 4),
     )
     parser.add_argument(
         "--n_frame_stack",
@@ -253,6 +253,7 @@ def add_weight_decay(parser: argparse.ArgumentParser):
         default=1,
     )
 
+
 def add_omega(parser: argparse.ArgumentParser):
     parser.add_argument(
         "-omg",
@@ -288,12 +289,14 @@ def add_dqnrcshared_arguments(parser: argparse.ArgumentParser):
     add_linear_heads(parser)
     add_iterated_shared_features(parser)
 
+
 @output_added_arguments
 def add_mmdqnrcshared_arguments(parser: argparse.ArgumentParser):
     add_weight_decay(parser)
     add_linear_heads(parser)
     add_iterated_shared_features(parser)
     add_omega(parser)
+
 
 @output_added_arguments
 def add_idqn_arguments(parser: argparse.ArgumentParser):
@@ -326,6 +329,7 @@ def add_gidqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
     add_linear_heads(parser)
+
 
 @output_added_arguments
 def add_mmgidqnshared_arguments(parser: argparse.ArgumentParser):

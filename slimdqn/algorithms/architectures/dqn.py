@@ -37,7 +37,7 @@ class Head(nn.Module):
     def __call__(self, x):
         if self.n_fc == 1:
             return nn.Dense(self.n_actions, kernel_init=self.initializer)(x)
-        elif self.n_fc == 2:
+        elif self.n_fc > 1:
             if self.features is not None:
                 x = nn.Dense(self.features, kernel_init=self.initializer)(x)
                 if self.layer_norm:
