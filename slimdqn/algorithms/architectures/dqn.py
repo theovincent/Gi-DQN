@@ -7,13 +7,15 @@ import jax.numpy as jnp
 
 def get_kernel_stride(pixels):
     if pixels == 84:
-        return (3, 3), (1, 1)
+        return (8, 8), (4, 4)
     if pixels == 42:
         return (4, 4), (2, 2)
     if pixels == 24:
         return (5, 5), (1, 1)
     if pixels == 10:
         return (3, 3), (1, 1)
+    if pixels == 16:
+        return (2, 2), (2, 2)
     raise NotImplementedError(f"Pixels {pixels} are not supported.")
 
 
