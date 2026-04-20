@@ -51,6 +51,8 @@ class MMGiDQNShared:
         weight_decay: float,
         adam_eps: float = 1e-8,
         pixels: int = 84,
+        kernel: int = 3,
+        stride: int = 1,
         n_conv: int = 3,
         n_fc: int = 1,
         omega: float = 5.0,
@@ -70,6 +72,8 @@ class MMGiDQNShared:
             n_heads=self.n_bellman_iterations,
             n_h_heads=self.n_bellman_iterations - 1,
             pixels=pixels,
+            kernel=kernel,
+            stride=stride,
             n_conv=n_conv,
             n_fc=n_fc,
         )
@@ -83,6 +87,8 @@ class MMGiDQNShared:
             n_heads=1,
             n_h_heads=0,
             pixels=pixels,
+            kernel=kernel,
+            stride=stride,
             n_conv=n_conv,
             n_fc=n_fc,
         )

@@ -32,12 +32,12 @@ def prepare_logs(env_name: str, algo_name: str, argvs: List[str]):
     store_params(p, shared_params, agent_params)
 
     p["wandb"] = wandb.init(
-        project="Gi-DQN_scaled_down",
+        project="SD-Gi-DQN-H",
         config=p,
         name=str(p["seed"]),
         group=f"{p['algo_name']}_{p['experiment_name']}",
         mode="online" if not p["disable_wandb"] else "disabled",
-        settings=wandb.Settings(_disable_stats=True),
+        settings=wandb.Settings(_disable_stats=False),
     )
 
     return p

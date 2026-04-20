@@ -5,20 +5,6 @@ import jax
 import jax.numpy as jnp
 
 
-def get_kernel_stride(pixels):
-    if pixels == 84:
-        return (8, 8), (4, 4)
-    if pixels == 42:
-        return (4, 4), (2, 2)
-    if pixels == 24:
-        return (5, 5), (1, 1)
-    if pixels == 10:
-        return (3, 3), (1, 1)
-    if pixels == 16:
-        return (2, 2), (2, 2)
-    raise NotImplementedError(f"Pixels {pixels} are not supported.")
-
-
 class Stack(nn.Module):
     """Stack of pooling and convolutional blocks with residual connections."""
 
@@ -80,6 +66,8 @@ class DQNNet(nn.Module):
     n_heads: int
     n_h_heads: int
     pixels: int
+    kernel: int
+    stride: int
     n_conv: int
     n_fc: int
 
@@ -88,7 +76,7 @@ class DQNNet(nn.Module):
         if self.architecture_type == "cnn":
             initializer = nn.initializers.xavier_uniform()
             idx_feature_start = self.n_conv
-            first_kernel, first_stride = get_kernel_stride(self.pixels)
+            first_kernel, first_stride = (self.kernel, self.kernel), (self.stride, self.stride)
             x = nn.Conv(
                 features=self.features[0], kernel_size=first_kernel, strides=first_stride, kernel_init=initializer
             )(jnp.array(x, ndmin=4) / 255.0)

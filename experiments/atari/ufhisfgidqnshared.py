@@ -53,6 +53,8 @@ def run(argvs=sys.argv[1:]):
         weight_decay=p["weight_decay"],
         adam_eps=1.5e-4,
         pixels=p["pixels"],
+        kernel=p["kernel"],
+        stride=p["stride"],
         n_conv=p["n_conv"],
         n_fc=p["n_fc"],
     )
