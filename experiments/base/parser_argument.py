@@ -194,7 +194,18 @@ def add_base_arguments(parser: argparse.ArgumentParser):
         default=84,
         type=int,
     )
-
+    parser.add_argument(
+        "--kernel",
+        help="Kernel size for first convolutional layer. 3 -> 3 x 3.",
+        default=3,
+        type=int,
+    )
+    parser.add_argument(
+        "--stride",
+        help="Stride size for first convolutional layer. 1 -> 1 x 1.",
+        default=1,
+        type=int,
+    )
     parser.add_argument(
         "--n_conv",
         help="Number of Convolutional Layers. Min=1, Max=3. Ignored when architecture other than CNN chosen.",
