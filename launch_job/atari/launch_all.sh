@@ -1,4 +1,3 @@
-TARGET_UPDATE_PERIOD=250 # 100 250 600 1500 4000
 
 NE=30
 RB=50_000
@@ -19,7 +18,6 @@ N_FC=2 # 2;  n fc layers, min 1
 FEATURES="16 128"
 ARCHTAG="F_c16_f128"
 # Atari frames
-PIXELS=16 # 84, 42, 24, 10, 16 -> Number of pixels
 FRAME_STACK=2
 FRAME_SKIP=4
 #########################
@@ -29,16 +27,20 @@ N_BELLMAN_ITERATIONS=5 # 5 10 20 50 100
 DISABLE_WANDB=0 # 0 1
 PLATFORM="cluster/cluster"  # cluster/cluster local/local
 
-for GAME in BattleZone DoubleDunk NameThisGame Phoenix Qbert; do
-for LR in 1e-5 10e-5 25e-5 50e-5 100e-5; do
 
-    CUSTOM_TAG="LR${LR}_NE${NE}"
+TARGET_UPDATE_PERIOD=250 # 100 250 600 1500 4000
+LR = 1e-5 # 1e-5 10e-5 25e-5 50e-5 100e-5
+PIXELS=16 # 84, 42, 24, 10, 16 -> Number of pixels
+KERNEL=6
+STRIDE=2
+for GAME in BattleZone DoubleDunk NameThisGame Phoenix Qbert; do
+
     ADDGAP=""
     ADDPER=""
 
     SHARED_ARGS="--replay_buffer_capacity ${RB} --batch_size 16 --gamma 0.99 --horizon 10_000 \
         --n_initial_samples ${N_INIT_SMPL} --epsilon_end 0.01 --epsilon_duration 100_000 --learning_rate ${LR} \
-        --n_epochs ${NE} --n_training_steps_per_epoch ${NTSPE} --features $FEATURES"
+        --n_epochs ${NE} --n_training_steps_per_epoch ${NTSPE} --features $FEATURES --kernel $KERNEL --stride $STRIDE"
 
     if [ $GAP == 1 ]; then
         SHARED_ARGS="$SHARED_ARGS --gap"
@@ -58,7 +60,7 @@ for LR in 1e-5 10e-5 25e-5 50e-5 100e-5; do
         --update_to_data $UPDATE_TO_DATA --update_horizon $UPDATE_HORIZON --n_frame_stack $FRAME_STACK \
         --n_frame_skip $FRAME_SKIP --layer_norm $LAYER_NORM_CONV $LAYER_NORM_FC --n_conv $N_CONV --n_fc $N_FC --pixels $PIXELS"
 
-    SHARED_NAME="PX${PIXELS}_ST${FRAME_STACK}_SK${FRAME_SKIP}_ncnv${N_CONV}_nfc${N_FC}_${ARCHTAG}_LN${LAYER_NORM_CONV}${LAYER_NORM_FC}${ARCHITECTURE_TYPE}${ADDGAP}${ADDPER}_${CUSTOM_TAG}"
+    SHARED_NAME="PX${PIXELS}_ST${FRAME_STACK}_SK${FRAME_SKIP}_ncnv${N_CONV}_nfc${N_FC}_${ARCHTAG}_LN${LAYER_NORM_CONV}${LAYER_NORM_FC}${ARCHITECTURE_TYPE}${ADDGAP}${ADDPER}_LR${LR}_NE${NE}"
 
     DQN_ARGS="--experiment_name L2_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME} --target_update_period $TARGET_UPDATE_PERIOD"
     #launch_job/atari/${PLATFORM}_dqn.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $DQN_ARGS
@@ -80,5 +82,4 @@ for LR in 1e-5 10e-5 25e-5 50e-5 100e-5; do
     DQNRCSHARED_ARGS="$DQNRCSHARED_ARGS --experiment_name L2_WD${WEIGHT_DECAY}_${SHARED_NAME}_${GAME}"
     #launch_job/atari/${PLATFORM}_dqnrcshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $DQNRCSHARED_ARGS
 
-done
 done
