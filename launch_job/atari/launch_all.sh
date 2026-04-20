@@ -15,8 +15,8 @@ LAYER_NORM_FC=1 # 0 1
 #Architecture
 N_CONV=1 # 1; n conv layers min 1, max 3
 N_FC=2 # 2;  n fc layers, min 1 
-FEATURES="16 512"
-ARCHTAG="F_c16_f512"
+FEATURES="32 512"
+ARCHTAG="F_c32_f512"
 # Atari frames
 FRAME_STACK=2
 FRAME_SKIP=4
@@ -31,8 +31,8 @@ PLATFORM="cluster/cluster"  # cluster/cluster local/local
 TARGET_UPDATE_PERIOD=4000 # 100 250 600 1500 4000
 LR=100e-5 # 1e-5 10e-5 25e-5 50e-5 100e-5
 PIXELS=16 # 84, 42, 24, 10, 16 -> Number of pixels
-KERNEL=6
-STRIDE=2
+KERNEL=7
+STRIDE=3
 for GAME in Qbert; do #BattleZone DoubleDunk NameThisGame Phoenix Qbert; do
 
     ADDGAP=""
@@ -60,7 +60,7 @@ for GAME in Qbert; do #BattleZone DoubleDunk NameThisGame Phoenix Qbert; do
         --update_to_data $UPDATE_TO_DATA --update_horizon $UPDATE_HORIZON --n_frame_stack $FRAME_STACK \
         --n_frame_skip $FRAME_SKIP --layer_norm $LAYER_NORM_CONV $LAYER_NORM_FC --n_conv $N_CONV --n_fc $N_FC --pixels $PIXELS"
 
-    SHARED_NAME="PX${PIXELS}K${KERNEL}_S${STRIDE}_ST${FRAME_STACK}_SK${FRAME_SKIP}_ncnv${N_CONV}_nfc${N_FC}_${ARCHTAG}_LN${LAYER_NORM_CONV}${LAYER_NORM_FC}${ARCHITECTURE_TYPE}${ADDGAP}${ADDPER}_LR${LR}_NE${NE}"
+    SHARED_NAME="PX${PIXELS}_K${KERNEL}_S${STRIDE}_ST${FRAME_STACK}_SK${FRAME_SKIP}_ncnv${N_CONV}_nfc${N_FC}_${ARCHTAG}_LN${LAYER_NORM_CONV}${LAYER_NORM_FC}${ARCHITECTURE_TYPE}${ADDGAP}${ADDPER}_LR${LR}_NE${NE}"
 
     DQN_ARGS="--experiment_name L2_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME} --target_update_period $TARGET_UPDATE_PERIOD"
     launch_job/atari/${PLATFORM}_dqn.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $DQN_ARGS
