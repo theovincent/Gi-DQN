@@ -17,6 +17,7 @@ def prepare_logs(env_name: str, algo_name: str, argvs: List[str]):
 
     parser = argparse.ArgumentParser(f"Train {algo_name} on {env_name}.")
     shared_params = parser_argument.__dict__["add_base_arguments"](parser)
+    print(algo_name)
     agent_params = parser_argument.__dict__[f"add_{algo_name}_arguments"](parser)
     p = vars(parser.parse_args(argvs))
     p["env_name"] = env_name

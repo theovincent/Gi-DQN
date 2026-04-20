@@ -329,3 +329,28 @@ def add_hldqnrcshared_arguments(parser: argparse.ArgumentParser):
     add_weight_decay(parser)
     add_mu(parser)
     add_distributional_arguments(parser)
+
+
+@output_added_arguments
+def add_c51_arguments(parser: argparse.ArgumentParser):
+    add_distributional_arguments(parser)
+
+
+@output_added_arguments
+def add_c51rcshared_arguments(parser: argparse.ArgumentParser):
+    add_weight_decay(parser)
+    add_distributional_arguments(parser)
+
+
+@output_added_arguments
+def add_ic51shared_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_target_sync_frequency(parser)
+    add_distributional_arguments(parser)
+
+
+@output_added_arguments
+def add_gic51shared_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_weight_decay(parser)
+    add_distributional_arguments(parser)
