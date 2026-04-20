@@ -24,8 +24,8 @@ LAYER_NORM_FC=1 # 0 1
 N_CONV=1 # 1; n conv layers min 1, max 3
 N_FC=2 # 2;  n fc layers, min 1 
 
-SHARED_ARGS="$SHARED_ARGS --features 8 256"
-ARCHTAG="F_c8_f256"
+SHARED_ARGS="$SHARED_ARGS --features 16 256"
+ARCHTAG="F_c16_f256"
 
 # Atari frames
 LOW_SCALE=1 # 1  whether to use 10 x 10 pixels insted of 42 x 42
@@ -83,7 +83,7 @@ fi
 GIDQNSHARED_ARGS="--n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY --target_update_period $TARGET_UPDATE_PERIOD"
 
 GIDQNSHARED_ARGS="$GIDQNSHARED_ARGS --experiment_name L2_K${N_BELLMAN_ITERATIONS}_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME}"
-launch_job/atari/${PLATFORM}_gidqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $GIDQNSHARED_ARGS
+launch_job/atari/${PLATFORM}_gidqnshared.sh --first_seed 5 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $GIDQNSHARED_ARGS
 
 
 IDQNSHARED_ARGS="--n_bellman_iterations $N_BELLMAN_ITERATIONS --target_update_period $TARGET_UPDATE_PERIOD"
