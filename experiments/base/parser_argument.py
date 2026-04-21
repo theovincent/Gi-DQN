@@ -183,6 +183,30 @@ def add_base_arguments(parser: argparse.ArgumentParser):
     )
 
 
+def add_distributional_arguments(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "-nb",
+        "--n_bins",
+        help="Number of bins to use for the categorical distribution.",
+        type=int,
+        default=50,
+    )
+    parser.add_argument(
+        "-minn",
+        "--min_value",
+        help="Value of the lowest learnable value of the target.",
+        type=float,
+        default=-100,
+    )
+    parser.add_argument(
+        "-maxn",
+        "--max_value",
+        help="Value of the highest learnable value of the target.",
+        type=float,
+        default=100,
+    )
+
+
 def add_n_bellman_iterations(parser: argparse.ArgumentParser):
     parser.add_argument(
         "-nbi",
@@ -249,4 +273,31 @@ def add_gidqn_arguments(parser: argparse.ArgumentParser):
 def add_gidqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
+    add_linear_heads(parser)
+
+
+@output_added_arguments
+def add_c51_arguments(parser: argparse.ArgumentParser):
+    add_distributional_arguments(parser)
+
+
+@output_added_arguments
+def add_c51rcshared_arguments(parser: argparse.ArgumentParser):
+    add_weight_decay(parser)
+    add_distributional_arguments(parser)
+    add_linear_heads(parser)
+
+
+@output_added_arguments
+def add_ic51shared_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_distributional_arguments(parser)
+    add_linear_heads(parser)
+
+
+@output_added_arguments
+def add_gic51shared_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_weight_decay(parser)
+    add_distributional_arguments(parser)
     add_linear_heads(parser)
