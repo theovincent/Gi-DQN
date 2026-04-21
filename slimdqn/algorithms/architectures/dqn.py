@@ -80,6 +80,8 @@ class DQNNet(nn.Module):
             x = nn.Conv(
                 features=self.features[0], kernel_size=first_kernel, strides=first_stride, kernel_init=initializer
             )(jnp.array(x, ndmin=4) / 255.0)
+            x = nn.max_pool(x, window_shape=(2, 2), padding="SAME", strides=(2, 2))
+
             if self.layer_norm[0]:
                 x = nn.LayerNorm()(x)
             x = nn.relu(x)
