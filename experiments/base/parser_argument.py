@@ -189,7 +189,7 @@ def add_distributional_arguments(parser: argparse.ArgumentParser):
         "--n_bins",
         help="Number of bins to use for the categorical distribution.",
         type=int,
-        default=50,
+        default=51,
     )
     parser.add_argument(
         "-minn",
@@ -289,10 +289,22 @@ def add_c51rcshared_arguments(parser: argparse.ArgumentParser):
 
 
 @output_added_arguments
+def add_c51rc_arguments(parser: argparse.ArgumentParser):
+    add_weight_decay(parser)
+    add_distributional_arguments(parser)
+
+
+@output_added_arguments
 def add_ic51shared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_distributional_arguments(parser)
     add_linear_heads(parser)
+
+
+@output_added_arguments
+def add_ic51_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_distributional_arguments(parser)
 
 
 @output_added_arguments
@@ -301,3 +313,10 @@ def add_gic51shared_arguments(parser: argparse.ArgumentParser):
     add_weight_decay(parser)
     add_distributional_arguments(parser)
     add_linear_heads(parser)
+
+
+@output_added_arguments
+def add_gic51_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_weight_decay(parser)
+    add_distributional_arguments(parser)
