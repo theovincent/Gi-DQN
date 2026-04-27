@@ -296,7 +296,7 @@ def add_dqn_arguments(parser: argparse.ArgumentParser):
     pass
 
 @output_added_arguments
-def add_random_policy_arguments(parser: argparse.ArgumentParser):
+def add_randompolicy_arguments(parser: argparse.ArgumentParser):
     pass
 
 @output_added_arguments
