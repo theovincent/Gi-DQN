@@ -295,6 +295,9 @@ def add_linear_heads(parser: argparse.ArgumentParser):
 def add_dqn_arguments(parser: argparse.ArgumentParser):
     pass
 
+@output_added_arguments
+def add_random_policy_arguments(parser: argparse.ArgumentParser):
+    pass
 
 @output_added_arguments
 def add_dqnrc_arguments(parser: argparse.ArgumentParser):
