@@ -1,50 +1,52 @@
 
-NE=30
-RB=50_000
-N_INIT_SMPL=10_000
-NTSPE=50_000
-
 UPDATE_TO_DATA=1  # 0.25 1 2 4 8
-ARCHITECTURE_TYPE="cnn"  # cnn impala
-GAP=0  # 0 
-UPDATE_HORIZON=1  # 1
-PER=0  # 0 
-########################
+
+UPDATE_HORIZON=1
+
+#Architecture
 LAYER_NORM_CONV=1 # 0 1
 LAYER_NORM_FC=1 # 0 1
-#Architecture
 N_CONV=1 # 1; n conv layers min 1, max 3
 N_FC=2 # 2;  n fc layers, min 1 
 FEATURES="16 256"
 ARCHTAG="c16_f256"
+KERNEL=2  #first K
+STRIDE=2  #first S
+
+ARCHITECTURE_TYPE="cnn"  # cnn impala
+GAP=0  # 0 
+PER=0  # 0
+
 # Atari frames
+PIXELS=16 # 84, 42, 24, 10, 16 -> Number of pixels
 FRAME_STACK=2
 FRAME_SKIP=4
-#########################UPDATE_TO_DATA=1  # 0.25 1 2 4 8
 
+#Shared, Iterated, H-Functions
 LINEAR_HEADS=1 # 1
 WEIGHT_DECAY=1 # 0.01 1 10 100 
 N_BELLMAN_ITERATIONS=5 # 5 10 20 50 100
+
 DISABLE_WANDB=0 # 0 1
 PLATFORM="cluster/cluster"  # cluster/cluster local/local
 
-
+#Experiment values to sweep over
 #TARGET_UPDATE_PERIOD=100 # 100 250 600 1500 4000
 #LR=100e-5 # 1e-5 10e-5 25e-5 50e-5 100e-5
-PIXELS=16 # 84, 42, 24, 10, 16 -> Number of pixels
-KERNEL=2  #first K
-STRIDE=2  #first S
-CUSTOM_TAG=""
+#UTD=0.25 1 2 4 8
+#K=2 5 20 100
+CUSTOM_TAG="" #custom tag if needed
+
 for TARGET_UPDATE_PERIOD in 600; do #100 600 4000; do 
 for LR in 25e-5; do #1e-5 25e-5 100e-5; do 
-for GAME in Atlantis Qbert Phoenix Enduro Boxing; do #Breakout Pong Freeway SpaceInvaders Assault MsPacman Kaboom Skiing BeamRider Enduro KungFuMaster Atlantis DemonAttack Galaxian Asterix Boxing BattleZone DoubleDunk NameThisGame Phoenix Qbert; do #BattleZone DoubleDunk NameThisGame Phoenix Qbert; do
+for GAME in Atlantis Qbert Phoenix Enduro Boxing; do
 
     ADDGAP=""
     ADDPER=""
 
-    SHARED_ARGS="--replay_buffer_capacity ${RB} --batch_size 16 --gamma 0.99 --horizon 10_000 \
-        --n_initial_samples ${N_INIT_SMPL} --epsilon_end 0.01 --epsilon_duration 100_000 --learning_rate ${LR} \
-        --n_epochs ${NE} --n_training_steps_per_epoch ${NTSPE} --features $FEATURES --kernel $KERNEL --stride $STRIDE"
+    SHARED_ARGS="--replay_buffer_capacity 50_000 --batch_size 16 --gamma 0.99 --horizon 10_000 \
+        --n_initial_samples 10_000 --epsilon_end 0.01 --epsilon_duration 100_000 --learning_rate ${LR} \
+        --n_epochs 30 --n_training_steps_per_epoch 50_000 --features $FEATURES --kernel $KERNEL --stride $STRIDE"
 
     #RANDOMPOLICY_ARGS="--experiment_name RANDOMPOLICY_${GAME}"
     #launch_job/atari/${PLATFORM}_randompolicy.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $RANDOMPOLICY_ARGS
@@ -70,7 +72,7 @@ for GAME in Atlantis Qbert Phoenix Enduro Boxing; do #Breakout Pong Freeway Spac
     SHARED_NAME="PX${PIXELS}_K${KERNEL}_S${STRIDE}_ST${FRAME_STACK}_SK${FRAME_SKIP}_ncnv${N_CONV}_nfc${N_FC}_${ARCHITECTURE_TYPE}_${ARCHTAG}_LN${LAYER_NORM_CONV}${LAYER_NORM_FC}$_${ADDGAP}${ADDPER}_LR${LR}_UTD${UPDATE_TO_DATA}"
 
     DQN_ARGS="--experiment_name L2_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME} --target_update_period $TARGET_UPDATE_PERIOD"
-    launch_job/atari/${PLATFORM}_dqn.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $DQN_ARGS
+    #launch_job/atari/${PLATFORM}_dqn.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $DQN_ARGS
 
     if [ $LINEAR_HEADS == 1 ]; then
         SHARED_ARGS="$SHARED_ARGS --linear_heads"
@@ -79,7 +81,7 @@ for GAME in Atlantis Qbert Phoenix Enduro Boxing; do #Breakout Pong Freeway Spac
 
     GIDQNSHARED_ARGS="--n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY --target_update_period $TARGET_UPDATE_PERIOD"
     GIDQNSHARED_ARGS="$GIDQNSHARED_ARGS --experiment_name L2_K${N_BELLMAN_ITERATIONS}_WD${WEIGHT_DECAY}_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME}"
-    launch_job/atari/${PLATFORM}_gidqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $GIDQNSHARED_ARGS
+    #launch_job/atari/${PLATFORM}_gidqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $GIDQNSHARED_ARGS
 
     IDQNSHARED_ARGS="--n_bellman_iterations $N_BELLMAN_ITERATIONS --target_update_period $TARGET_UPDATE_PERIOD"
     IDQNSHARED_ARGS="$IDQNSHARED_ARGS --experiment_name L2_K${N_BELLMAN_ITERATIONS}_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME}"
