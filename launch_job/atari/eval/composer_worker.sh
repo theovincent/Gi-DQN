@@ -8,4 +8,4 @@ VIDEO_DIR="$VIDEO_DIR/seed$SEED"
 OUTPUT_DIR="$OUTPUT_DIR/seed$SEED"
 
 source env/bin/activate
-python3 compose_eval_videos.py --videos_dir $VIDEO_DIR --include native ale agent --output_dir $OUTPUT_DIR
+python3 experiments/base/compose_eval_videos.py --videos_dir $VIDEO_DIR --include native ale agent --output_dir $OUTPUT_DIR
