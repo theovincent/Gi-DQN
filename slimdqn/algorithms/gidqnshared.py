@@ -142,14 +142,14 @@ class GiDQNShared:
                 # "variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
                 # "h_loss": np.mean(self.cumulative_h_losses) / (self.target_update_period * self.update_to_data),
             }
-            for idx_network in range(0, min(5, self.n_bellman_iterations)):
-                self.logs[f"networks/{idx_network}_loss"] = self.cumulative_q_losses[idx_network] / (
-                    self.target_update_period * self.update_to_data
-                )
-            for idx_network in range(min(5, self.n_bellman_iterations - 1)):
-                self.logs[f"h_networks/{idx_network}_loss"] = self.cumulative_h_losses[idx_network] / (
-                    self.target_update_period * self.update_to_data
-                )
+            # for idx_network in range(0, min(5, self.n_bellman_iterations)):
+            #     self.logs[f"networks/{idx_network}_loss"] = self.cumulative_q_losses[idx_network] / (
+            #         self.target_update_period * self.update_to_data
+            #     )
+            # for idx_network in range(min(5, self.n_bellman_iterations - 1)):
+            #     self.logs[f"h_networks/{idx_network}_loss"] = self.cumulative_h_losses[idx_network] / (
+            #         self.target_update_period * self.update_to_data
+            #     )
 
             self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)
             self.cumulative_h_losses = np.zeros(self.n_bellman_iterations - 1)
