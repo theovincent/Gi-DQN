@@ -1,5 +1,6 @@
 # Inspired by dopamine implementation: https://github.com/google/dopamine/blob/master/dopamine/jax/replay_memory/replay_buffer.py
 """Simpler implementation of the standard DQN replay memory."""
+
 from collections import OrderedDict, deque
 from dataclasses import dataclass
 import operator
