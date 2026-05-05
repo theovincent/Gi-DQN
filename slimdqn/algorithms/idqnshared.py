@@ -43,7 +43,7 @@ class iDQNShared:
 
         # initialize 1 network with K heads
         self.params = self.online_networks.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
-        # initialize the target networks
+        # initialize the target network
         self.target_params = set_target_params(self.params, self.n_actions)
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
@@ -94,7 +94,6 @@ class iDQNShared:
             params, target_params, batch_samples, importance_weights
         )
         updates, optimizer_state = self.optimizer.update(grad_loss, optimizer_state, params)
-
         params = optax.apply_updates(params, updates)
 
         return params, optimizer_state, per_sample_q_losses
