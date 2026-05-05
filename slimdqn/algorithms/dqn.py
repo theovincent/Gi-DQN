@@ -63,12 +63,7 @@ class DQN:
 
     @partial(jax.jit, static_argnames="self")
     def learn_on_batch(
-        self,
-        params: FrozenDict,
-        params_target: FrozenDict,
-        optimizer_state,
-        batch_samples,
-        importance_weights,
+        self, params: FrozenDict, params_target: FrozenDict, optimizer_state, batch_samples, importance_weights
     ):
         grad_loss, per_sample_q_loss = jax.grad(self.loss_on_batch, has_aux=True)(
             params, params_target, batch_samples, importance_weights
