@@ -1,6 +1,5 @@
 
 UPDATE_TO_DATA=1  # 0.25 1 2 4 8
-
 UPDATE_HORIZON=1
 
 #Architecture
@@ -25,21 +24,21 @@ FRAME_SKIP=4
 #Shared, Iterated, H-Functions
 LINEAR_HEADS=1 # 1
 WEIGHT_DECAY=1 # 0.01 1 10 100 
-N_BELLMAN_ITERATIONS=5 # 5 10 20 50 100
+N_BELLMAN_ITERATIONS=5 # 2 5 20 100
 
 DISABLE_WANDB=0 # 0 1
 PLATFORM="cluster/cluster"  # cluster/cluster local/local
 
 #Experiment values to sweep over
-#TARGET_UPDATE_PERIOD=100 # 100 250 600 1500 4000
+#TARGET_UPDATE_PERIOD=100 # 100 300 3000 6000 10000
 #LR=100e-5 # 1e-5 10e-5 25e-5 50e-5 100e-5
 #UTD=0.25 1 2 4 8
 #K=2 5 20 100
 CUSTOM_TAG="" #custom tag if needed
 
-for TARGET_UPDATE_PERIOD in 600; do #100 600 4000; do 
-for LR in 25e-5; do #1e-5 25e-5 100e-5; do 
-for GAME in Atlantis Qbert Phoenix Enduro Boxing; do
+for TARGET_UPDATE_PERIOD in 100 300 3000 6000 10000; do 
+for LR in 1e-5 10e-5 25e-5 50e-5 100e-5; do 
+for GAME in Asterix Gopher Enduro Alien YarsRevenge; do 
 
     ADDGAP=""
     ADDPER=""
@@ -90,8 +89,10 @@ for GAME in Atlantis Qbert Phoenix Enduro Boxing; do
     if [ $TARGET_UPDATE_PERIOD == 100 ]; then
     	DQNRCSHARED_ARGS="--weight_decay $WEIGHT_DECAY"
    	DQNRCSHARED_ARGS="$DQNRCSHARED_ARGS --experiment_name L2_WD${WEIGHT_DECAY}_${SHARED_NAME}_${GAME}"
-    	#launch_job/atari/${PLATFORM}_dqnrcshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $DQNRCSHARED_ARGS
-    fi 
+	#launch_job/atari/${PLATFORM}_dqnrcshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS $DQNRCSHARED_ARGS
+    fi
+
+
 done
 done
 done
