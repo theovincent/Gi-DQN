@@ -14,10 +14,10 @@ class AtariEnv:
     def __init__(
         self,
         name: str,
-        render_mode=None,
         state_height_width, #: tuple = (84, 84),
         n_stacked_frames, #: int = 4,
         n_skipped_frames, #: int = 4,
+        render_mode=None,
     ) -> None:
         self.name = name
         self.state_height, self.state_width = state_height_width[0], state_height_width[1]
