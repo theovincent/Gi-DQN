@@ -1,8 +1,8 @@
 #!/bin/bash
 
 
-FIRST_SEED=1
-LAST_SEED=3
+FIRST_SEED=2
+LAST_SEED=2
 
 
 
@@ -11,9 +11,9 @@ for ALGO in dqn gidqnshared; do
 for GAME in Atlantis Qbert Phoenix Enduro Boxing; do
 
 if [ $ALGO == dqn ]; then
-EXPERIMENT_NAME_GAME="L2_PX16_K2_S2__ST2_SK4_ncnv1_nfc2_F_c16_f256_LN11cnn_LR25e-5_NE30_T600_$GAME"
+EXPERIMENT_NAME_GAME="L2_PX16_K2_S2_ST2_SK4_ncnv1_nfc2_cnn_c16_f256_LN11_LR25e-5_UTD1_T600_$GAME"
 elif [ $ALGO == gidqnshared ]; then
-EXPERIMENT_NAME_GAME="L2_K5_WD1_PX16_K2_S2__ST2_SK4_ncnv1_nfc2_F_c16_f256_LN11cnn_LR25e-5_NE30_LINEAR_T600_${GAME}"
+EXPERIMENT_NAME_GAME="L2_K5_WD1_PX16_K2_S2_ST2_SK4_ncnv1_nfc2_cnn_c16_f256_LN11_LR25e-5_UTD1_LINEAR_T600_${GAME}"
 fi
 
 
@@ -24,8 +24,8 @@ echo "Submitting video composer: $ALGO on $EXPERIMENT_NAME_GAME for $GAME ; Seed
 
 sbatch --job-name video-composer-$ALGO-$GAME \
        --array=$FIRST_SEED-$LAST_SEED \
-       --cpus-per-task=1 \
-       --mem-per-cpu=2000M \
+       --cpus-per-task=3 \
+       --mem-per-cpu=1000M \
        --time=01:00:00 \
        --partition stud \
        --output=$LOG_DIR/composed_videos_%a.out \
