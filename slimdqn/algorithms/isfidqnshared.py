@@ -91,8 +91,9 @@ class ISFiDQNShared:
         # initialize 1 network with K heads
         self.params = self.online_networks.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
         # initialize the target networks
-        self.target_params = set_target_params(self.params, linear_heads, self.n_actions)
-
+        self.target_params = (
+            set_target_params(self.params, linear_heads, self.n_actions) if not self.iterated_shared_features else None
+        )
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
         self.optimizer_state = self.optimizer.init(self.params)
 

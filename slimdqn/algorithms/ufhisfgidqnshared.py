@@ -99,30 +99,18 @@ class UFHISFGiDQNShared:
 
         # initialize 1 network with K q-heads and K OR K-1 h-heads
         self.params = self.online_networks.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
+
         # initialize the target networks
-        if not self.iterated_shared_features:
-            self.target_params = set_target_params(self.params, linear_heads, self.n_actions)
-        else:
-            self.target_params = self.params
+        self.target_params = (
+            set_target_params(self.params, linear_heads, self.n_actions) if not self.iterated_shared_features else None
+        )
 
         self.optimizer = optax.adamw(
             learning_rate,
             eps=adam_eps,
             weight_decay=weight_decay,
-            mask=jax.tree_util.tree_map_with_path(lambda path, _: "h_heads" in path[1].key, self.target_params),
+            mask=jax.tree_util.tree_map_with_path(lambda path, _: "h_heads" in path[1].key, self.params),
         )
-
-        if self.iterated_shared_features:
-            self.target_optimizer = optax.adamw(
-                learning_rate,
-                eps=adam_eps,
-                weight_decay=weight_decay,
-                mask=jax.tree_util.tree_map_with_path(lambda path, _: "h_heads" in path[1].key, self.params),
-            )
-            self.target_optimizer_state = self.target_optimizer.init(self.target_params)
-        else:
-            self.target_optimizer = None
-            self.target_optimizer_state = None
 
         self.optimizer_state = self.optimizer.init(self.params)
 
@@ -144,19 +132,12 @@ class UFHISFGiDQNShared:
 
             (
                 self.params,
-                self.target_params,
                 self.optimizer_state,
-                self.target_optimizer_state,
                 per_sample_q_losses,
                 per_sample_h_losses,
                 variance,
             ) = self.learn_on_batch(
-                self.params,
-                self.target_params,
-                self.optimizer_state,
-                self.target_optimizer_state,
-                batch_samples,
-                importance_weights,
+                self.params, self.target_params, self.optimizer_state, batch_samples, importance_weights
             )
 
             replay_buffer.update(sample_keys, per_sample_q_losses.mean(axis=1) + per_sample_h_losses.mean(axis=1))
@@ -193,37 +174,14 @@ class UFHISFGiDQNShared:
             self.cumulative_variance = 0
 
     @partial(jax.jit, static_argnames="self")
-    def learn_on_batch(
-        self,
-        params: FrozenDict,
-        target_params: FrozenDict,
-        optimizer_state,
-        target_optimizer_state,
-        batch_samples,
-        importance_weights,
-    ):
-        (grad_loss_params, grad_loss_target_params), (per_sample_q_losses, per_sample_h_losses, variance) = jax.grad(
-            self.loss_on_batch, argnums=(0, 1), has_aux=True
-        )(params, target_params, batch_samples, importance_weights)
-
-        updates, optimizer_state = self.optimizer.update(grad_loss_params, optimizer_state, params)
-        params = optax.apply_updates(params, updates)
-
-        if self.iterated_shared_features:
-            target_updates, target_optimizer_state = self.target_optimizer.update(
-                grad_loss_target_params, target_optimizer_state, target_params
-            )
-            target_params = optax.apply_updates(target_params, target_updates)
-
-        return (
-            params,
-            target_params,
-            optimizer_state,
-            target_optimizer_state,
-            per_sample_q_losses,
-            per_sample_h_losses,
-            variance,
+    def learn_on_batch(self, params, target_params, optimizer_state, batch_samples, importance_weights):
+        grad_loss, (per_sample_q_losses, per_sample_h_losses, variance) = jax.grad(self.loss_on_batch, has_aux=True)(
+            params, target_params, batch_samples, importance_weights
         )
+
+        updates, optimizer_state = self.optimizer.update(grad_loss, optimizer_state, params)
+        params = optax.apply_updates(params, updates)
+        return params, optimizer_state, per_sample_q_losses, per_sample_h_losses, variance
 
     def loss_on_batch(self, params: FrozenDict, target_params: FrozenDict, samples, importance_weights):
         # vmap to compute the loss for all samples
@@ -254,19 +212,17 @@ class UFHISFGiDQNShared:
         # (K)
         td_errors = targets - q_values
 
-        if not self.unfreeze_first_head:
-            targets = targets.at[0].set(
-                0.0
-            )  # cut off the gradient flow to the first Q-Network Q_0 by overwriting the first target with a constant if we dont want to unfreeze it
+        # cut off the gradient flow to the first Q-Network Q_0 by overwriting the first target with a constant if we dont want to unfreeze it
+        if self.unfreeze_first_head:
+            first_term = targets[:1] * jax.lax.stop_gradient(td_errors[:1])
+        else:
+            first_term = jnp.zeros(1)
+
+        target_loss = jnp.concatenate([first_term, targets[1:] * jax.lax.stop_gradient(h_values)])
+        td_loss = target_loss - q_values * jax.lax.stop_gradient(td_errors)
 
         h_loss = h_values * jax.lax.stop_gradient(h_values - td_errors[1:])
-
-        target_loss = targets[1:] * jax.lax.stop_gradient(h_values)
-
         h_loss = jnp.append(jnp.zeros(1), h_loss)
-        target_loss = jnp.append(jnp.zeros(1), target_loss)
-
-        td_loss = target_loss - q_values * jax.lax.stop_gradient(td_errors)
 
         return (
             importance_weight * (td_loss + h_loss),
