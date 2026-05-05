@@ -20,7 +20,7 @@ class DQNRCShared:
         gamma: float,
         update_horizon: int,
         update_to_data: int,
-        target_update_period: int,  # only used for logging
+        target_update_period: int,  # for logging only
         weight_decay: float,
         adam_eps: float = 1e-8,
     ):
