@@ -53,21 +53,21 @@ def add_base_arguments(parser: argparse.ArgumentParser):
         nargs="*",
         help="List of features for the Q-networks.",
         type=int,
-        default=[200, 200],
+        default=[16, 256],
     )
     parser.add_argument(
         "-rbc",
         "--replay_buffer_capacity",
         help="Replay Buffer capacity.",
         type=int,
-        default=10_000,
+        default=50_000,
     )
     parser.add_argument(
         "-bs",
         "--batch_size",
         help="Batch size for training.",
         type=int,
-        default=32,
+        default=16,
     )
     parser.add_argument(
         "-n",
@@ -88,44 +88,28 @@ def add_base_arguments(parser: argparse.ArgumentParser):
         "--learning_rate",
         help="Learning rate.",
         type=float,
-        default=3e-4,
+        default=1e-5,
     )
     parser.add_argument(
         "-horizon",
         "--horizon",
         help="Horizon for truncation.",
         type=int,
-        default=1000,
-    )
-    parser.add_argument(
-        "-at",
-        "--architecture_type",
-        help="Type of architecture.",
-        type=str,
-        default="fc",
-        choices=["cnn", "impala", "fc"],
+        default=10_000,
     )
     parser.add_argument(
         "-ne",
         "--n_epochs",
         help="Number of epochs to perform.",
         type=int,
-        default=50,
+        default=30,
     )
     parser.add_argument(
         "-ntspe",
         "--n_training_steps_per_epoch",
         help="Number of training steps per epoch.",
         type=int,
-        default=10_000,
-    )
-    parser.add_argument(
-        "-wtp",
-        "--wind_and_turbulence_power",
-        nargs=2,
-        help="List of wind power (0.0 - 20.0) and turbulence power (0.0 - 2.0)",
-        type=float,
-        default=[15.0, 1.5],
+        default=50_000,
     )
     parser.add_argument(
         "-utd",
@@ -139,7 +123,7 @@ def add_base_arguments(parser: argparse.ArgumentParser):
         "--n_initial_samples",
         help="Number of initial samples before the training starts.",
         type=int,
-        default=1_000,
+        default=10_000,
     )
     parser.add_argument(
         "-ee",
@@ -153,28 +137,14 @@ def add_base_arguments(parser: argparse.ArgumentParser):
         "--epsilon_duration",
         help="Duration of epsilon's linear decay used for exploration.",
         type=float,
-        default=1_000,
+        default=100_000,
     )
     parser.add_argument(
         "-tup",
         "--target_update_period",
         help="Number of training steps before updating the target Q-network.",
         type=int,
-        default=200,
-    )
-    parser.add_argument(
-        "-ln",
-        "--layer_norm",
-        help="Layer norm for (conv, fc) layers.",
-        nargs=2,
-        type=lambda x: x.lower() in ("1", "true"),
-        default=[False, False],
-    )
-    parser.add_argument(
-        "--gap",
-        help="Whether to use Global Average Pruning.",
-        default=False,
-        action="store_true",
+        default=1000,
     )
     parser.add_argument(
         "--per",
@@ -183,52 +153,20 @@ def add_base_arguments(parser: argparse.ArgumentParser):
         action="store_true",
     )
     parser.add_argument(
-        "--low_scale",
-        help="Whether to use low-scale images of 42 x 42 instead of 84 x 84 pixels.",
-        default=False,
-        action="store_true",
-    )
-    parser.add_argument(
         "--pixels",
         help="Number of input pixels per dimension. 84 -> 84 x 84.",
-        default=84,
+        default=16,
         type=int,
-    )
-    parser.add_argument(
-        "--kernel",
-        help="Kernel size for first convolutional layer. 3 -> 3 x 3.",
-        default=3,
-        type=int,
-    )
-    parser.add_argument(
-        "--stride",
-        help="Stride size for first convolutional layer. 1 -> 1 x 1.",
-        default=1,
-        type=int,
-    )
-    parser.add_argument(
-        "--n_conv",
-        help="Number of Convolutional Layers. Min=1, Max=3. Ignored when architecture other than CNN chosen.",
-        default=3,
-        type=int,
-        choices=range(1, 4),
-    )
-    parser.add_argument(
-        "--n_fc",
-        help="Number of FC layers after Conv layers, counting also FC mapping to actions. Min=1, Max=3.",
-        type=int,
-        default=2,
-        choices=range(1, 4),
     )
     parser.add_argument(
         "--n_frame_stack",
-        help="Number of ALE frames to stack in RB sample.",
-        default=4,
+        help="Number of ALE frames to stack per sample.",
+        default=2,
         type=int,
     )
     parser.add_argument(
         "--n_frame_skip",
-        help="Number of ALE frames to skip before receiving a sample.",
+        help="Number of ALE frames to skip between each sample.",
         default=4,
         type=int,
     )
@@ -244,24 +182,6 @@ def add_n_bellman_iterations(parser: argparse.ArgumentParser):
     )
 
 
-def add_freeze_first_head(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "--unfreeze_first_head",
-        help="Whether the first network should be fixed or not for the duration of a Bellman iteration",
-        action="store_true",
-        default=False,
-    )
-
-
-def add_iterated_shared_features(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "--iterated_shared_features",
-        help="Whether to use only one network instead of a second one for the first target.",
-        action="store_true",
-        default=False,
-    )
-
-
 def add_weight_decay(parser: argparse.ArgumentParser):
     parser.add_argument(
         "-wd",
@@ -269,6 +189,15 @@ def add_weight_decay(parser: argparse.ArgumentParser):
         help="Weighting of the regularization in weight decay.",
         type=float,
         default=1,
+    )
+
+
+def add_freeze_first_head(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "--unfreeze_first_head",
+        help="Whether the first network should be fixed or not for the duration of a Bellman iteration",
+        action="store_true",
+        default=False,
     )
 
 
@@ -282,81 +211,37 @@ def add_omega(parser: argparse.ArgumentParser):
     )
 
 
-def add_linear_heads(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "--linear_heads",
-        help="Whether to share only the last layer instead of the two last layers.",
-        default=False,
-        action="store_true",
-    )
-
-
 @output_added_arguments
 def add_dqn_arguments(parser: argparse.ArgumentParser):
     pass
-
-@output_added_arguments
-def add_randompolicy_arguments(parser: argparse.ArgumentParser):
-    pass
-
-@output_added_arguments
-def add_dqnrc_arguments(parser: argparse.ArgumentParser):
-    add_weight_decay(parser)
 
 
 @output_added_arguments
 def add_dqnrcshared_arguments(parser: argparse.ArgumentParser):
     add_weight_decay(parser)
-    add_linear_heads(parser)
-    add_iterated_shared_features(parser)
-
-
-@output_added_arguments
-def add_mmdqnrcshared_arguments(parser: argparse.ArgumentParser):
-    add_weight_decay(parser)
-    add_linear_heads(parser)
-    add_iterated_shared_features(parser)
-    add_omega(parser)
-
-
-@output_added_arguments
-def add_idqn_arguments(parser: argparse.ArgumentParser):
-    add_n_bellman_iterations(parser)
-    add_iterated_shared_features(parser)
 
 
 @output_added_arguments
 def add_idqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
-    add_linear_heads(parser)
-
-
-@output_added_arguments
-def add_isfidqnshared_arguments(parser: argparse.ArgumentParser):
-    add_n_bellman_iterations(parser)
-    add_linear_heads(parser)
-    add_iterated_shared_features(parser)
-
-
-@output_added_arguments
-def add_gidqn_arguments(parser: argparse.ArgumentParser):
-    add_n_bellman_iterations(parser)
-    add_weight_decay(parser)
-    add_freeze_first_head(parser)
 
 
 @output_added_arguments
 def add_gidqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
-    add_linear_heads(parser)
 
 
+@output_added_arguments
+def add_randompolicy_arguments(parser: argparse.ArgumentParser):
+    pass
+
+
+# NOT REVIEWED
 @output_added_arguments
 def add_mmgidqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
-    add_linear_heads(parser)
     add_omega(parser)
 
 
@@ -364,6 +249,15 @@ def add_mmgidqnshared_arguments(parser: argparse.ArgumentParser):
 def add_ufhisfgidqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
-    add_linear_heads(parser)
     add_freeze_first_head(parser)
-    add_iterated_shared_features(parser)
+
+
+@output_added_arguments
+def add_mmdqnrcshared_arguments(parser: argparse.ArgumentParser):
+    add_weight_decay(parser)
+    add_omega(parser)
+
+
+@output_added_arguments
+def add_isfidqnshared_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
