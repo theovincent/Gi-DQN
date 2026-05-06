@@ -26,16 +26,15 @@ def run(argvs=sys.argv[1:]):
     )
     rb = ReplayBuffer(
         sampling_distribution=Prioritized(p["seed"], p["replay_buffer_capacity"]) if p["per"] else Uniform(p["seed"]),
-        batch_size=p["batch_size"],
         max_capacity=p["replay_buffer_capacity"],
+        batch_size=p["batch_size"],
+        stack_size=env.n_stacked_frames,
         update_horizon=p["update_horizon"],
         gamma=p["gamma"],
         clipping=lambda x: np.clip(x, -1, 1),
-        stack_size=env.n_stacked_frames,
     )
     agent = RandomPolicy(
         q_key,
-        (env.state_height, env.state_width, env.n_stacked_frames),
         env.n_actions,
     )
     train(train_key, p, agent, env, rb)
@@ -43,4 +42,3 @@ def run(argvs=sys.argv[1:]):
 
 if __name__ == "__main__":
     run()
-
