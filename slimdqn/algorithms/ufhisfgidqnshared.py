@@ -73,7 +73,7 @@ class UFHISFGiDQNShared:
             linear_heads,
             n_actions,
             n_heads=self.n_bellman_iterations if not self.iterated_shared_features else self.n_bellman_iterations + 1,
-            n_h_heads=self.n_bellman_iterations - 1,
+            n_h_heads=self.n_bellman_iterations - 1, #TODO if not self.iterated_shared_features else self.n_bellman_iterations,
             pixels=pixels,
             kernel=kernel,
             stride=stride,
