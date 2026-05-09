@@ -170,7 +170,7 @@ class UFHISFGiDQNShared:
                 )
 
             self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)
-            self.cumulative_h_losses = np.zeros(self.n_bellman_iterations - 1)
+            self.cumulative_h_losses = np.zeros(self.n_bellman_iterations - 1 if not self.iterated_shared_features else self.n_bellman_iterations)
             self.cumulative_variance = 0
 
     @partial(jax.jit, static_argnames="self")
