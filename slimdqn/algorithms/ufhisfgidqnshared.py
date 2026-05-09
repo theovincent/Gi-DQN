@@ -202,23 +202,22 @@ class UFHISFGiDQNShared:
             next_q_values_remaining_targets = self.online_networks.apply(params, sample.next_state)[0][:-1] #K-1
             next_q_values = jnp.concatenate([next_q_values_first_target[None, :], next_q_values_remaining_targets], axis=0) #K
             targets = self.compute_target(next_q_values, sample) #K
-            # (K)
+
             td_errors = targets - q_values #K
 
             h_loss = h_values * jax.lax.stop_gradient(h_values - td_errors[1:]) # K-1
+            h_loss = jnp.append(jnp.zeros(1), h_loss) #K
+            pure_h_loss =jnp.square(h_values - td_errors[1:]) #K-1
 
             target_loss = targets[1:] * jax.lax.stop_gradient(h_values) #K-1
-
-            h_loss = jnp.append(jnp.zeros(1), h_loss) #K
             target_loss = jnp.append(jnp.zeros(1), target_loss) #K
-            pure_h_loss =jnp.square(h_values - td_errors[1:]) #K-1
+
             td_loss = target_loss - q_values * jax.lax.stop_gradient(td_errors) #K
         else:
             q_outputs, h_outputs = self.online_networks.apply(params, sample.state) # K+1 , K
             q_values, h_values = q_outputs[:, sample.action][1:], h_outputs[:, sample.action] # K, K
 
             next_q_values_targets = self.online_networks.apply(params, sample.next_state)[0][:-1] #K
-
             targets = self.compute_target(next_q_values_targets, sample) #K
 
             # cut off the gradient flow to the first Q-Network Q_0 by overwriting the first target with a
@@ -229,9 +228,10 @@ class UFHISFGiDQNShared:
             td_errors = targets - q_values #K
 
             h_loss = h_values * jax.lax.stop_gradient(h_values - td_errors) #K
+            pure_h_loss = jnp.square(h_values - td_errors) #K
+
             target_loss = targets * jax.lax.stop_gradient(h_values) #K
             td_loss = target_loss - q_values * jax.lax.stop_gradient(td_errors) #K
-            pure_h_loss = jnp.square(h_values - td_errors) #K
         return (
             importance_weight * (td_loss + h_loss), #ISF: K, NISF: K
             jnp.square(td_errors), #ISF: K, NISF: K
