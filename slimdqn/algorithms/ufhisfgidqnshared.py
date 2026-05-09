@@ -143,7 +143,6 @@ class UFHISFGiDQNShared:
             replay_buffer.update(sample_keys, per_sample_q_losses.mean(axis=1) + per_sample_h_losses.mean(axis=1))
 
             self.cumulative_q_losses += per_sample_q_losses.mean(axis=0)
-            #print(self.cumulative_h_losses.shape, per_sample_h_losses.mean(axis=0).shape, self.counter)
             self.cumulative_h_losses += per_sample_h_losses.mean(axis=0)
             self.cumulative_variance += variance
 
@@ -212,7 +211,7 @@ class UFHISFGiDQNShared:
 
             h_loss = jnp.append(jnp.zeros(1), h_loss) #K
             target_loss = jnp.append(jnp.zeros(1), target_loss) #K
-
+            pure_h_loss =jnp.square(h_values - td_errors[1:]) #K-1
             td_loss = target_loss - q_values * jax.lax.stop_gradient(td_errors) #K
         else:
             q_outputs, h_outputs = self.online_networks.apply(params, sample.state) # K+1 , K
@@ -232,11 +231,11 @@ class UFHISFGiDQNShared:
             h_loss = h_values * jax.lax.stop_gradient(h_values - td_errors) #K
             target_loss = targets * jax.lax.stop_gradient(h_values) #K
             td_loss = target_loss - q_values * jax.lax.stop_gradient(td_errors) #K
-
+            pure_h_loss = jnp.square(h_values - td_errors) #K
         return (
             importance_weight * (td_loss + h_loss), #ISF: K, NISF: K
             jnp.square(td_errors), #ISF: K, NISF: K
-            jnp.square(h_values - td_errors), #ISF: K, NISF: K-1
+            pure_h_loss, #ISF: K, NISF: K-1
             targets**2 - targets * q_values,  #ISF: K, NISF: K
         )
 
