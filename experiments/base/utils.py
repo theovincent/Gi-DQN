@@ -37,7 +37,7 @@ def prepare_logs(env_name: str, algo_name: str, argvs: List[str]):
         name=str(p["seed"]),
         group=f"{p['algo_name']}_{p['experiment_name']}",
         mode="online" if not p["disable_wandb"] else "disabled",
-        settings=wandb.Settings(_disable_stats=False),
+        settings=wandb.Settings(_disable_stats=True),
     )
 
     return p
