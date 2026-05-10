@@ -1,4 +1,7 @@
-# Implementation of Gradient iterated Deep Q-Network (Gi-DQN)
+# Implementation of Gradient iterated Deep Q-Network (`Gi-DQN`)
+
+[![custom_badge](https://img.shields.io/badge/RLJ_Paper-📄-7fe395)](https://arxiv.org/pdf/2603.07833)
+[![custom_badge](https://img.shields.io/badge/OpenReview-📖-e3d77f)](https://openreview.net/forum?id=9aTDoQ3Qy1)
 
 ## User installation
 We recommend using Python 3.11.5. In the folder where the code is, create a Python virtual environment, activate it, update pip and install the package and its dependencies in editable mode:
