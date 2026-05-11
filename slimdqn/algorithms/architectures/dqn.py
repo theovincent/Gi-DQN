@@ -36,11 +36,11 @@ class DQNNet(nn.Module):
 
         if self.n_h_heads == 0:
             return q_vals
-        elif self.n_h_heads == 1:
+        elif self.n_h_heads == 1 and self.n_heads == 1: # QRC case
             h_vals = nn.Dense(self.n_actions, kernel_init=initializer, name="h_heads")(jax.lax.stop_gradient(x))
             return q_vals, h_vals
         else:
             h_vals = nn.Dense(self.n_h_heads * self.n_actions, kernel_init=initializer, name="h_heads")(
                 jax.lax.stop_gradient(x)
             ).reshape((self.n_h_heads, self.n_actions))
-            return q_vals, h_vals
+            return q_vals, h_vals #GiDQN case
