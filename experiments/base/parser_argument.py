@@ -237,6 +237,11 @@ def add_randompolicy_arguments(parser: argparse.ArgumentParser):
     pass
 
 
+@output_added_arguments
+def add_isdqnshared_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+
+
 # NOT REVIEWED
 @output_added_arguments
 def add_mmgidqnshared_arguments(parser: argparse.ArgumentParser):
@@ -256,8 +261,3 @@ def add_gisdqnshared_arguments(parser: argparse.ArgumentParser):
 def add_mmdqnrcshared_arguments(parser: argparse.ArgumentParser):
     add_weight_decay(parser)
     add_omega(parser)
-
-
-@output_added_arguments
-def add_isdqnshared_arguments(parser: argparse.ArgumentParser):
-    add_n_bellman_iterations(parser)
