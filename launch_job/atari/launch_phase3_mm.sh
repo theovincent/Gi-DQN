@@ -24,8 +24,8 @@ do
     for OMEGA in 0.01 0.1 1 10 100
     do
           launch_job/atari/${PLATFORM}_mmdqn.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS \
-          --learning_rate $LEARNING_RATE_DQN --target_update_period $TARGET_UPDATE_PERIOD_DQN --update_to_data $UTD --omega $OMEGA \
-          --experiment_name "LR${LEARNING_RATE_DQN}_T${TARGET_UPDATE_PERIOD_DQN}_UTD${UTD}_OMG${OMEGA}_${GAME}"
+          --learning_rate $LEARNING_RATE_DQN --target_update_period $TARGET_UPDATE_PERIOD_DQN --omega $OMEGA \
+          --experiment_name "LR${LEARNING_RATE_DQN}_T${TARGET_UPDATE_PERIOD_DQN}_OMG${OMEGA}_${GAME}"
 
           launch_job/atari/${PLATFORM}_mmidqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS  \
           --learning_rate $LEARNING_RATE_IDQN --target_update_period $TARGET_UPDATE_PERIOD_IDQN \
