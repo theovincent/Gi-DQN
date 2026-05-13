@@ -1,4 +1,3 @@
-
 import argparse
 import json
 import os
@@ -9,8 +8,6 @@ import jax
 
 from experiments.base.evaluate import evaluate_and_record
 from slimdqn.environments.atari_recorder import AtariEnvRecorder
-
-
 
 
 def _build_agent(algo_name: str, p: dict, env, key):
@@ -39,10 +36,12 @@ def _build_agent(algo_name: str, p: dict, env, key):
 
     if algo_name == "dqn":
         from slimdqn.algorithms.dqn import DQN
+
         return DQN(**common)
 
     if algo_name == "dqnrcshared":
         from slimdqn.algorithms.dqnrcshared import DQNRCShared
+
         return DQNRCShared(
             **common,
             linear_heads=p.get("linear_heads", True),
@@ -51,6 +50,7 @@ def _build_agent(algo_name: str, p: dict, env, key):
 
     if algo_name == "gidqnshared":
         from slimdqn.algorithms.gidqnshared import GiDQNShared
+
         return GiDQNShared(
             **common,
             n_bellman_iterations=p["n_bellman_iterations"],
@@ -60,6 +60,7 @@ def _build_agent(algo_name: str, p: dict, env, key):
 
     if algo_name == "idqnshared":
         from slimdqn.algorithms.idqnshared import iDQNShared
+
         return iDQNShared(
             **common,
             n_bellman_iterations=p["n_bellman_iterations"],
@@ -67,8 +68,9 @@ def _build_agent(algo_name: str, p: dict, env, key):
         )
 
     if algo_name == "isfidqnshared":
-        from slimdqn.algorithms.isfidqnshared import ISFiDQNShared
-        return ISFiDQNShared(
+        from slimdqn.algorithms.isdqnshared import iSDQNShared
+
+        return iSDQNShared(
             **common,
             n_bellman_iterations=p["n_bellman_iterations"],
             linear_heads=p.get("linear_heads", True),
@@ -77,6 +79,7 @@ def _build_agent(algo_name: str, p: dict, env, key):
 
     if algo_name == "mmgidqnshared":
         from slimdqn.algorithms.mmgidqnshared import MMGiDQNShared
+
         return MMGiDQNShared(
             **common,
             n_bellman_iterations=p["n_bellman_iterations"],
@@ -87,6 +90,7 @@ def _build_agent(algo_name: str, p: dict, env, key):
 
     if algo_name == "mmdqnrcshared":
         from slimdqn.algorithms.mmdqnrcshared import MMDQNRCShared
+
         return MMDQNRCShared(
             **common,
             linear_heads=p.get("linear_heads", True),
@@ -94,9 +98,10 @@ def _build_agent(algo_name: str, p: dict, env, key):
             omega=p.get("omega", 5.0),
         )
 
-    if algo_name == "ufhisfgidqnshared":
-        from slimdqn.algorithms.ufhisfgidqnshared import UFHISFGiDQNShared
-        return UFHISFGiDQNShared(
+    if algo_name == "gisdqnshared":
+        from slimdqn.algorithms.gisdqnshared import GiSDQNShared
+
+        return GiSDQNShared(
             **common,
             n_bellman_iterations=p["n_bellman_iterations"],
             linear_heads=p.get("linear_heads", True),
@@ -107,29 +112,25 @@ def _build_agent(algo_name: str, p: dict, env, key):
 
     raise ValueError(
         f"Unknown algo_name '{algo_name}'. "
-        "Supported: dqn, dqnrcshared, gidqnshared, idqnshared, isfidqnshared, "
-        "mmgidqnshared, mmdqnrcshared, ufhisfgidqnshared"
+        "Supported: dqn, dqnrcshared, gidqnshared, idqnshared, isdqnshared, "
+        "mmgidqnshared, mmdqnrcshared, gisdqnshared"
     )
-
 
 
 def run(argvs=sys.argv[1:]):
-    parser = argparse.ArgumentParser(
-        "Evaluate a trained Atari agent and record videos at 3 resolutions."
-    )
+    parser = argparse.ArgumentParser("Evaluate a trained Atari agent and record videos at 3 resolutions.")
     parser.add_argument(
         "--experiment_path",
         type=str,
         required=True,
         help="Path to the experiment folder (the one that contains parameters.json). "
-             "E.g. experiments/atari/exp_output/L2_K5_WD1.../",
+        "E.g. experiments/atari/exp_output/L2_K5_WD1.../",
     )
     parser.add_argument(
         "--algo_name",
         type=str,
         required=True,
-        help="Algorithm name. "
-             "(e.g. dqn).",
+        help="Algorithm name. " "(e.g. dqn).",
     )
     parser.add_argument(
         "--seed",
@@ -147,8 +148,7 @@ def run(argvs=sys.argv[1:]):
         "--output_dir",
         type=str,
         default=None,
-        help="Directory to save videos. "
-             "Defaults to {experiment_path}/{algo_name}/videos/seed{seed}/.",
+        help="Directory to save videos. " "Defaults to {experiment_path}/{algo_name}/videos/seed{seed}/.",
     )
     parser.add_argument(
         "--fps",
@@ -164,10 +164,9 @@ def run(argvs=sys.argv[1:]):
 
     shared = raw["shared_parameters"]
     algo = raw.get(args.algo_name, {})
-    p = {**shared, **algo}  
+    p = {**shared, **algo}
 
     game_name = shared["experiment_name"].split("_")[-1]
-
 
     env = AtariEnvRecorder(
         name=game_name,
@@ -176,23 +175,17 @@ def run(argvs=sys.argv[1:]):
         n_skipped_frames=p.get("n_frame_skip", 4),
     )
 
-
     key = jax.random.PRNGKey(args.seed)
     agent = _build_agent(args.algo_name, p, env, key)
 
     model_path = os.path.join(args.experiment_path, args.algo_name, "models", str(args.seed))
     assert os.path.exists(model_path), f"Model not found at: {model_path}"
     model = pickle.load(open(model_path, "rb"))
-    params = model["params"]  
+    params = model["params"]
 
-    output_dir = args.output_dir or os.path.join(
-        args.experiment_path, args.algo_name, "videos", f"seed{args.seed}"
-    )
+    output_dir = args.output_dir or os.path.join(args.experiment_path, args.algo_name, "videos", f"seed{args.seed}")
 
-    print(
-        f"\nEvaluating {args.algo_name} on {game_name} "
-        f"(pixels={p['pixels']}, seed={args.seed})"
-    )
+    print(f"\nEvaluating {args.algo_name} on {game_name} " f"(pixels={p['pixels']}, seed={args.seed})")
     print(f"  model : {model_path}")
     print(f"  output: {output_dir}\n")
 
@@ -201,4 +194,3 @@ def run(argvs=sys.argv[1:]):
 
 if __name__ == "__main__":
     run()
-
