@@ -7,7 +7,7 @@ import numpy as np
 from experiments.base.dqn import train
 from experiments.base.utils import prepare_logs
 from slimdqn.environments.atari import AtariEnv
-from slimdqn.algorithms.ufhisfgidqnshared import UFHISFGiDQNShared
+from slimdqn.algorithms.gisdqnshared import GiSDQNShared
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer
 from slimdqn.sample_collection.samplers import Uniform, Prioritized
 
@@ -33,7 +33,7 @@ def run(argvs=sys.argv[1:]):
         clipping=lambda x: np.clip(x, -1, 1),
         stack_size=env.n_stacked_frames,
     )
-    agent = UFHISFGiDQNShared(
+    agent = GiSDQNShared(
         q_key,
         (env.state_height, env.state_width, env.n_stacked_frames),
         env.n_actions,

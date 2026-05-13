@@ -246,7 +246,7 @@ def add_mmgidqnshared_arguments(parser: argparse.ArgumentParser):
 
 
 @output_added_arguments
-def add_ufhisfgidqnshared_arguments(parser: argparse.ArgumentParser):
+def add_gisdqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
     add_freeze_first_head(parser)
@@ -259,5 +259,5 @@ def add_mmdqnrcshared_arguments(parser: argparse.ArgumentParser):
 
 
 @output_added_arguments
-def add_isfidqnshared_arguments(parser: argparse.ArgumentParser):
+def add_isdqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)

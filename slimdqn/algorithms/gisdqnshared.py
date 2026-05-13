@@ -33,7 +33,7 @@ def shift_params(params, linear_heads, n_actions):
     return optax.tree_utils.tree_set(params, q_heads=q_heads, h_heads=h_heads)
 
 
-class UFHISFGiDQNShared:
+class GiSDQNShared:
     def __init__(
         self,
         key: jax.random.PRNGKey,
@@ -119,7 +119,9 @@ class UFHISFGiDQNShared:
         self.update_to_data = update_to_data
         self.target_update_period = target_update_period
         self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)
-        self.cumulative_h_losses = np.zeros(self.n_bellman_iterations - 1 if not self.iterated_shared_features else self.n_bellman_iterations)
+        self.cumulative_h_losses = np.zeros(
+            self.n_bellman_iterations - 1 if not self.iterated_shared_features else self.n_bellman_iterations
+        )
         self.cumulative_variance = 0
 
     def update_online_params(self, step: int, replay_buffer: ReplayBuffer):
@@ -170,7 +172,9 @@ class UFHISFGiDQNShared:
                 )
 
             self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)
-            self.cumulative_h_losses = np.zeros(self.n_bellman_iterations - 1 if not self.iterated_shared_features else self.n_bellman_iterations)
+            self.cumulative_h_losses = np.zeros(
+                self.n_bellman_iterations - 1 if not self.iterated_shared_features else self.n_bellman_iterations
+            )
             self.cumulative_variance = 0
 
     @partial(jax.jit, static_argnames="self")
@@ -190,53 +194,53 @@ class UFHISFGiDQNShared:
         )
         return total_losses.mean(axis=0).sum(), (q_losses, h_losses, variances.mean())
 
-
-
     def loss(self, params: FrozenDict, target_params: FrozenDict, sample: ReplayElement, importance_weight):
         # computes the loss for a single sample
         if not self.iterated_shared_features:
-            q_outputs, h_outputs = self.online_networks.apply(params, sample.state) #K, K-1
-            q_values, h_values = q_outputs[:, sample.action], h_outputs[:, sample.action] #K, K-1
+            q_outputs, h_outputs = self.online_networks.apply(params, sample.state)  # K, K-1
+            q_values, h_values = q_outputs[:, sample.action], h_outputs[:, sample.action]  # K, K-1
 
-            next_q_values_first_target = self.root_network.apply(target_params, sample.next_state) #1
-            next_q_values_remaining_targets = self.online_networks.apply(params, sample.next_state)[0][:-1] #K-1
-            next_q_values = jnp.concatenate([next_q_values_first_target[None, :], next_q_values_remaining_targets], axis=0) #K
-            targets = self.compute_target(next_q_values, sample) #K
+            next_q_values_first_target = self.root_network.apply(target_params, sample.next_state)  # 1
+            next_q_values_remaining_targets = self.online_networks.apply(params, sample.next_state)[0][:-1]  # K-1
+            next_q_values = jnp.concatenate(
+                [next_q_values_first_target[None, :], next_q_values_remaining_targets], axis=0
+            )  # K
+            targets = self.compute_target(next_q_values, sample)  # K
 
-            td_errors = targets - q_values #K
+            td_errors = targets - q_values  # K
 
-            h_loss = h_values * jax.lax.stop_gradient(h_values - td_errors[1:]) # K-1
-            h_loss = jnp.append(jnp.zeros(1), h_loss) #K
-            pure_h_loss =jnp.square(h_values - td_errors[1:]) #K-1
+            h_loss = h_values * jax.lax.stop_gradient(h_values - td_errors[1:])  # K-1
+            h_loss = jnp.append(jnp.zeros(1), h_loss)  # K
+            pure_h_loss = jnp.square(h_values - td_errors[1:])  # K-1
 
-            target_loss = targets[1:] * jax.lax.stop_gradient(h_values) #K-1
-            target_loss = jnp.append(jnp.zeros(1), target_loss) #K
+            target_loss = targets[1:] * jax.lax.stop_gradient(h_values)  # K-1
+            target_loss = jnp.append(jnp.zeros(1), target_loss)  # K
 
-            td_loss = target_loss - q_values * jax.lax.stop_gradient(td_errors) #K
+            td_loss = target_loss - q_values * jax.lax.stop_gradient(td_errors)  # K
         else:
-            q_outputs, h_outputs = self.online_networks.apply(params, sample.state) # K+1 , K
-            q_values, h_values = q_outputs[:, sample.action][1:], h_outputs[:, sample.action] # K, K
+            q_outputs, h_outputs = self.online_networks.apply(params, sample.state)  # K+1 , K
+            q_values, h_values = q_outputs[:, sample.action][1:], h_outputs[:, sample.action]  # K, K
 
-            next_q_values_targets = self.online_networks.apply(params, sample.next_state)[0][:-1] #K
-            targets = self.compute_target(next_q_values_targets, sample) #K
+            next_q_values_targets = self.online_networks.apply(params, sample.next_state)[0][:-1]  # K
+            targets = self.compute_target(next_q_values_targets, sample)  # K
 
             # cut off the gradient flow to the first Q-Network Q_0 by overwriting the first target with a
             # constant if we dont want to unfreeze it
             if not self.unfreeze_first_head:
                 targets[:1] = jnp.zeros(1)
 
-            td_errors = targets - q_values #K
+            td_errors = targets - q_values  # K
 
-            h_loss = h_values * jax.lax.stop_gradient(h_values - td_errors) #K
-            pure_h_loss = jnp.square(h_values - td_errors) #K
+            h_loss = h_values * jax.lax.stop_gradient(h_values - td_errors)  # K
+            pure_h_loss = jnp.square(h_values - td_errors)  # K
 
-            target_loss = targets * jax.lax.stop_gradient(h_values) #K
-            td_loss = target_loss - q_values * jax.lax.stop_gradient(td_errors) #K
+            target_loss = targets * jax.lax.stop_gradient(h_values)  # K
+            td_loss = target_loss - q_values * jax.lax.stop_gradient(td_errors)  # K
         return (
-            importance_weight * (td_loss + h_loss), #ISF: K, NISF: K
-            jnp.square(td_errors), #ISF: K, NISF: K
-            pure_h_loss, #ISF: K, NISF: K-1
-            targets**2 - targets * q_values,  #ISF: K, NISF: K
+            importance_weight * (td_loss + h_loss),  # ISF: K, NISF: K
+            jnp.square(td_errors),  # ISF: K, NISF: K
+            pure_h_loss,  # ISF: K, NISF: K-1
+            targets**2 - targets * q_values,  # ISF: K, NISF: K
         )
 
     def compute_target(self, next_q_values, sample: ReplayElement):

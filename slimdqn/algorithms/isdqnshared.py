@@ -28,7 +28,7 @@ def shift_params(params, linear_heads, n_actions):
     return optax.tree_utils.tree_set(params, q_heads=q_heads)
 
 
-class ISFiDQNShared:
+class iSDQNShared:
     def __init__(
         self,
         key: jax.random.PRNGKey,
