@@ -5,30 +5,15 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 from flax.core import FrozenDict
-from wandb.sdk.lib import retry
-
 from slimdqn.algorithms.architectures.dqn import DQNNet
 
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 
-@partial(jax.jit, static_argnames=("linear_heads", "n_actions"))
-def set_target_params(params, linear_heads, n_actions):
-    if not linear_heads:
-        q_heads = jax.tree.map(lambda p: p[0], params["params"]["q_heads"])
-    else:
-        q_heads = jax.tree.map(lambda p: p[..., :n_actions], params["params"]["q_heads"])
-    return optax.tree_utils.tree_set(params, q_heads=q_heads, h_heads=None)
-
-
-@partial(jax.jit, static_argnames=("linear_heads", "n_actions"))
-def shift_params(params, linear_heads, n_actions):
-    if not linear_heads:
-        q_heads = jax.tree.map(lambda p: p.at[:-1].set(p[1:]), params["params"]["q_heads"])
-        h_heads = jax.tree.map(lambda p: p.at[:-1].set(p[1:]), params["params"]["h_heads"])
-    else:
-        q_heads = jax.tree.map(lambda p: p.at[..., :-n_actions].set(p[..., n_actions:]), params["params"]["q_heads"])
-        h_heads = jax.tree.map(lambda p: p.at[..., :-n_actions].set(p[..., n_actions:]), params["params"]["h_heads"])
+@partial(jax.jit, static_argnames="n_actions")
+def shift_params(params, n_actions):
+    q_heads = jax.tree.map(lambda p: p.at[..., :-n_actions].set(p[..., n_actions:]), params["params"]["q_heads"])
+    h_heads = jax.tree.map(lambda p: p.at[..., :-n_actions].set(p[..., n_actions:]), params["params"]["h_heads"])
 
     return optax.tree_utils.tree_set(params, q_heads=q_heads, h_heads=h_heads)
 
@@ -41,69 +26,28 @@ class GiSDQNShared:
         n_actions,
         n_bellman_iterations: int,
         features: list,
-        architecture_type: str,
-        layer_norm: tuple[bool, bool],
-        gap: bool,
-        linear_heads: bool,
         learning_rate: float,
         gamma: float,
         update_horizon: int,
         update_to_data: int,
-        unfreeze_first_head: bool,
-        iterated_shared_features: bool,
         target_update_period: int,
         weight_decay: float,
+        unfreeze_first_head: bool,
         adam_eps: float = 1e-8,
-        pixels: int = 84,
-        kernel: int = 3,
-        stride: int = 1,
-        n_conv: int = 3,
-        n_fc: int = 1,
     ):
-        self.unfreeze_first_head = unfreeze_first_head
-        self.iterated_shared_features = iterated_shared_features
         self.n_bellman_iterations = n_bellman_iterations
+        self.unfreeze_first_head = unfreeze_first_head
         self.n_actions = n_actions
-        # 2K Networks: Q_1 to Q_K, TD-Surrogate_1 to TD-Surrogate_K-1
-        self.online_networks = DQNNet(
+        # 2K Networks: Q_0, Q_1 to Q_K, TD-Surrogate_1 to TD-Surrogate_K-1
+        self.networks = DQNNet(
             features,
-            architecture_type,
-            layer_norm,
-            gap,
-            linear_heads,
             n_actions,
-            n_heads=self.n_bellman_iterations if not self.iterated_shared_features else self.n_bellman_iterations + 1,
-            n_h_heads=self.n_bellman_iterations - 1 if not self.iterated_shared_features else self.n_bellman_iterations,
-            pixels=pixels,
-            kernel=kernel,
-            stride=stride,
-            n_conv=n_conv,
-            n_fc=n_fc,
+            n_heads=1 + self.n_bellman_iterations,
+            n_h_heads=self.n_bellman_iterations - 1 + int(unfreeze_first_head),
         )
-        if not self.iterated_shared_features:
-            self.root_network = DQNNet(
-                features,
-                architecture_type,
-                layer_norm,
-                gap,
-                linear_heads,
-                n_actions,
-                n_heads=1,
-                n_h_heads=0,
-                pixels=pixels,
-                kernel=kernel,
-                stride=stride,
-                n_conv=n_conv,
-                n_fc=n_fc,
-            )
 
-        # initialize 1 network with K q-heads and K OR K-1 h-heads
-        self.params = self.online_networks.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
-
-        # initialize the target networks
-        self.target_params = (
-            set_target_params(self.params, linear_heads, self.n_actions) if not self.iterated_shared_features else None
-        )
+        # initialize 1 network with K+1 q-heads and K-1 OR K h-heads
+        self.params = self.networks.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
 
         self.optimizer = optax.adamw(
             learning_rate,
@@ -111,7 +55,6 @@ class GiSDQNShared:
             weight_decay=weight_decay,
             mask=jax.tree_util.tree_map_with_path(lambda path, _: "h_heads" in path[1].key, self.params),
         )
-
         self.optimizer_state = self.optimizer.init(self.params)
 
         self.gamma = gamma
@@ -119,144 +62,94 @@ class GiSDQNShared:
         self.update_to_data = update_to_data
         self.target_update_period = target_update_period
         self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)
-        self.cumulative_h_losses = np.zeros(
-            self.n_bellman_iterations - 1 if not self.iterated_shared_features else self.n_bellman_iterations
-        )
-        self.cumulative_variance = 0
+        self.cumulative_h_losses = np.zeros(self.n_bellman_iterations - 1 + int(unfreeze_first_head))
 
     def update_online_params(self, step: int, replay_buffer: ReplayBuffer):
-        # Update the network parameters 'update_to_data' times every step
         for _ in range(int(max(self.update_to_data, 1))):
             # if update_to_data < 1, only perform one update if step = 0 [1 / self.update_to_data]
             if self.update_to_data < 1 and step % (1 / self.update_to_data) != 0:
                 return None
             batch_samples, (sample_keys, importance_weights) = replay_buffer.sample()
 
-            (
-                self.params,
-                self.optimizer_state,
-                per_sample_q_losses,
-                per_sample_h_losses,
-                variance,
-            ) = self.learn_on_batch(
-                self.params, self.target_params, self.optimizer_state, batch_samples, importance_weights
+            self.params, self.optimizer_state, per_sample_q_losses, per_sample_h_losses = self.learn_on_batch(
+                self.params, self.optimizer_state, batch_samples, importance_weights
             )
 
             replay_buffer.update(sample_keys, per_sample_q_losses.mean(axis=1) + per_sample_h_losses.mean(axis=1))
 
             self.cumulative_q_losses += per_sample_q_losses.mean(axis=0)
             self.cumulative_h_losses += per_sample_h_losses.mean(axis=0)
-            self.cumulative_variance += variance
 
     def update_target_params(self, step: int):
-        # shift the network parameters every `target_update_period` steps. This starts the next Bellman iteration
         if step % self.target_update_period == 0:
-            if not self.iterated_shared_features:
-                self.target_params = set_target_params(self.params, self.online_networks.linear_heads, self.n_actions)
-            # Window shift
-            self.params = shift_params(self.params, self.online_networks.linear_heads, self.n_actions)
+            self.params = shift_params(self.params, self.n_actions)
 
             self.logs = {
                 "n_training_steps": step,
                 "loss": np.mean(self.cumulative_q_losses) / (self.target_update_period * self.update_to_data),
-                # "variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
-                # "h_loss": np.mean(self.cumulative_h_losses) / (self.target_update_period * self.update_to_data),
+                "h_loss": np.mean(self.cumulative_h_losses) / (self.target_update_period * self.update_to_data),
             }
-            for idx_network in range(0, min(5, self.n_bellman_iterations)):
-                self.logs[f"networks/{idx_network}_loss"] = self.cumulative_q_losses[idx_network] / (
-                    self.target_update_period * self.update_to_data
-                )
-            for idx_network in range(min(5, self.n_bellman_iterations - 1)):
-                self.logs[f"h_networks/{idx_network}_loss"] = self.cumulative_h_losses[idx_network] / (
-                    self.target_update_period * self.update_to_data
-                )
+            # for idx_network in range(0, min(5, self.n_bellman_iterations)):
+            #     self.logs[f"networks/{idx_network}_loss"] = self.cumulative_q_losses[idx_network] / (
+            #         self.target_update_period * self.update_to_data
+            #     )
+            # for idx_network in range(min(5, self.n_bellman_iterations - 1 + int(self.unfreeze_first_head))):
+            #     self.logs[f"h_networks/{idx_network}_loss"] = self.cumulative_h_losses[idx_network] / (
+            #         self.target_update_period * self.update_to_data
+            #     )
 
             self.cumulative_q_losses = np.zeros(self.n_bellman_iterations)
-            self.cumulative_h_losses = np.zeros(
-                self.n_bellman_iterations - 1 if not self.iterated_shared_features else self.n_bellman_iterations
-            )
-            self.cumulative_variance = 0
+            self.cumulative_h_losses = np.zeros(self.n_bellman_iterations - 1 + int(self.unfreeze_first_head))
 
     @partial(jax.jit, static_argnames="self")
-    def learn_on_batch(self, params, target_params, optimizer_state, batch_samples, importance_weights):
-        grad_loss, (per_sample_q_losses, per_sample_h_losses, variance) = jax.grad(self.loss_on_batch, has_aux=True)(
-            params, target_params, batch_samples, importance_weights
+    def learn_on_batch(self, params: FrozenDict, optimizer_state, batch_samples, importance_weights):
+        grad_loss, (per_sample_q_losses, per_sample_h_losses) = jax.grad(self.loss_on_batch, has_aux=True)(
+            params, batch_samples, importance_weights
         )
-
         updates, optimizer_state = self.optimizer.update(grad_loss, optimizer_state, params)
         params = optax.apply_updates(params, updates)
-        return params, optimizer_state, per_sample_q_losses, per_sample_h_losses, variance
 
-    def loss_on_batch(self, params: FrozenDict, target_params: FrozenDict, samples, importance_weights):
-        # vmap to compute the loss for all samples
-        total_losses, q_losses, h_losses, variances = jax.vmap(self.loss, in_axes=(None, None, 0, 0))(
-            params, target_params, samples, importance_weights
+        return params, optimizer_state, per_sample_q_losses, per_sample_h_losses
+
+    def loss_on_batch(self, params: FrozenDict, samples, importance_weights):
+        total_losses, q_losses, h_losses = jax.vmap(self.loss, in_axes=(None, 0, 0))(
+            params, samples, importance_weights
         )
-        return total_losses.mean(axis=0).sum(), (q_losses, h_losses, variances.mean())
 
-    def loss(self, params: FrozenDict, target_params: FrozenDict, sample: ReplayElement, importance_weight):
-        # computes the loss for a single sample
-        if not self.iterated_shared_features:
-            q_outputs, h_outputs = self.online_networks.apply(params, sample.state)  # K, K-1
-            q_values, h_values = q_outputs[:, sample.action], h_outputs[:, sample.action]  # K, K-1
+        return total_losses.mean(axis=0).sum(), (q_losses, h_losses)
 
-            next_q_values_first_target = self.root_network.apply(target_params, sample.next_state)  # 1
-            next_q_values_remaining_targets = self.online_networks.apply(params, sample.next_state)[0][:-1]  # K-1
-            next_q_values = jnp.concatenate(
-                [next_q_values_first_target[None, :], next_q_values_remaining_targets], axis=0
-            )  # K
-            targets = self.compute_target(next_q_values, sample)  # K
+    def loss(self, params: FrozenDict, sample: ReplayElement, importance_weight):
+        q_outputs, h_outputs = self.networks.apply(params, sample.state)
+        q_values, h_values = q_outputs[1:, sample.action], h_outputs[:, sample.action]
 
-            td_errors = targets - q_values  # K
+        next_q_values = self.networks.apply(params, sample.next_state)[0][:-1]
+        targets = self.compute_target(next_q_values, sample)
 
-            h_loss = h_values * jax.lax.stop_gradient(h_values - td_errors[1:])  # K-1
-            h_loss = jnp.append(jnp.zeros(1), h_loss)  # K
-            pure_h_loss = jnp.square(h_values - td_errors[1:])  # K-1
+        td_errors = targets - q_values
 
-            target_loss = targets[1:] * jax.lax.stop_gradient(h_values)  # K-1
-            target_loss = jnp.append(jnp.zeros(1), target_loss)  # K
+        h_loss = h_values * jax.lax.stop_gradient(h_values - td_errors[1 - int(self.unfreeze_first_head) :])
+        target_loss = targets[1 - int(self.unfreeze_first_head) :] * jax.lax.stop_gradient(h_values)
 
-            td_loss = target_loss - q_values * jax.lax.stop_gradient(td_errors)  # K
-        else:
-            q_outputs, h_outputs = self.online_networks.apply(params, sample.state)  # K+1 , K
-            q_values, h_values = q_outputs[:, sample.action][1:], h_outputs[:, sample.action]  # K, K
+        if not self.unfreeze_first_head:
+            h_loss = jnp.append(jnp.zeros(1), h_loss)
+            target_loss = jnp.append(jnp.zeros(1), target_loss)
 
-            next_q_values_targets = self.online_networks.apply(params, sample.next_state)[0][:-1]  # K
-            targets = self.compute_target(next_q_values_targets, sample)  # K
+        td_loss = target_loss - q_values * jax.lax.stop_gradient(td_errors)
 
-            # cut off the gradient flow to the first Q-Network Q_0 by overwriting the first target with a
-            # constant if we dont want to unfreeze it
-            if not self.unfreeze_first_head:
-                targets[:1] = jnp.zeros(1)
-
-            td_errors = targets - q_values  # K
-
-            h_loss = h_values * jax.lax.stop_gradient(h_values - td_errors)  # K
-            pure_h_loss = jnp.square(h_values - td_errors)  # K
-
-            target_loss = targets * jax.lax.stop_gradient(h_values)  # K
-            td_loss = target_loss - q_values * jax.lax.stop_gradient(td_errors)  # K
         return (
-            importance_weight * (td_loss + h_loss),  # ISF: K, NISF: K
-            jnp.square(td_errors),  # ISF: K, NISF: K
-            pure_h_loss,  # ISF: K, NISF: K-1
-            targets**2 - targets * q_values,  # ISF: K, NISF: K
+            importance_weight * (td_loss + h_loss),
+            jnp.square(td_errors),
+            jnp.square(h_values - td_errors[1 - int(self.unfreeze_first_head) :]),
         )
 
     def compute_target(self, next_q_values, sample: ReplayElement):
-        # computes the target value for single sample
         return sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * jnp.max(
             next_q_values, axis=-1
         )
 
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray):
-        # computes the best action for a single state
-        q_outputs = self.online_networks.apply(params, state)[0]
-        if not self.iterated_shared_features:
-            return jnp.argmax(q_outputs.mean(axis=0))
-        else:
-            return jnp.argmax(q_outputs[1:].mean(axis=0))
+        return jnp.argmax(self.networks.apply(params, state)[0][1:].mean(axis=0))
 
     def get_model(self):
-        return {"params": self.params, "root_params": self.target_params}
+        return {"params": self.params}

@@ -26,12 +26,12 @@ def run(argvs=sys.argv[1:]):
     )
     rb = ReplayBuffer(
         sampling_distribution=Prioritized(p["seed"], p["replay_buffer_capacity"]) if p["per"] else Uniform(p["seed"]),
-        batch_size=p["batch_size"],
         max_capacity=p["replay_buffer_capacity"],
+        batch_size=p["batch_size"],
+        stack_size=env.n_stacked_frames,
         update_horizon=p["update_horizon"],
         gamma=p["gamma"],
         clipping=lambda x: np.clip(x, -1, 1),
-        stack_size=env.n_stacked_frames,
     )
     agent = GiSDQNShared(
         q_key,
@@ -39,24 +39,14 @@ def run(argvs=sys.argv[1:]):
         env.n_actions,
         n_bellman_iterations=p["n_bellman_iterations"],
         features=p["features"],
-        architecture_type=p["architecture_type"],
-        layer_norm=p["layer_norm"],
-        gap=p["gap"],
-        linear_heads=p["linear_heads"],
         learning_rate=p["learning_rate"],
         gamma=p["gamma"],
         update_horizon=p["update_horizon"],
         update_to_data=p["update_to_data"],
-        unfreeze_first_head=p["unfreeze_first_head"],
-        iterated_shared_features=p["iterated_shared_features"],
         target_update_period=p["target_update_period"],
         weight_decay=p["weight_decay"],
+        unfreeze_first_head=p["unfreeze_first_head"],
         adam_eps=1.5e-4,
-        pixels=p["pixels"],
-        kernel=p["kernel"],
-        stride=p["stride"],
-        n_conv=p["n_conv"],
-        n_fc=p["n_fc"],
     )
     train(train_key, p, agent, env, rb)
 
