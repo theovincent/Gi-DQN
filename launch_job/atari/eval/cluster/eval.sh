@@ -1,13 +1,8 @@
 #!/bin/bash
 
-#Breakout Pong Freeway SpaceInvaders Assault MsPacman Kaboom Skiing Beamrider Enduro KungFuMaster Atlantis DemonAttack Galaxian Asterix Boxing BattleZone DoubleDunk NameThisGame Phoenix Qbert;
 
 
-for GAME in Breakout; do #Breakout Pong SpaceInvaders Assault MsPacman Kaboom Skiing BeamRider Enduro KungFuMaster Atlantis DemonAttack Galaxian Asterix Boxing BattleZone DoubleDunk NameThisGame Phoenix Qbert Freeway; do
-
-
-#EXPERIMENT_NAME="L2_PX16_K2_S2__ST2_SK4_ncnv1_nfc2_F_c16_f256_LN11cnn_LR25e-5_NE30_T600_${GAME}"
-#ALGO_NAME="dqn"
+for GAME in Breakout; do
 
 EXPERIMENT_NAME="L2_K5_WD1_PX16_K2_S2__ST2_SK4_ncnv1_nfc2_F_c16_f256_LN11cnn_LR25e-5_NE30_LINEAR_T600_${GAME}"
 ALGO_NAME="gidqnshared"
