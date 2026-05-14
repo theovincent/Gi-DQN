@@ -18,13 +18,13 @@ do
             SHARED_ARGS="$SHARED_ARGS --learning_rate $LEARNING_RATE"
             SHARED_NAME="LR${LEARNING_RATE}"
 
-#            launch_job/atari/${PLATFORM}_dqn.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS \
-#                --target_update_period $TARGET_UPDATE_PERIOD \
-#                --experiment_name ${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME}
-
-            launch_job/atari/${PLATFORM}_isdqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS \
+            launch_job/atari/${PLATFORM}_sdqn.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS \
                 --target_update_period $TARGET_UPDATE_PERIOD \
-                --n_bellman_iterations $N_BELLMAN_ITERATIONS --experiment_name ${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_K${N_BELLMAN_ITERATIONS}_${GAME}
+                --experiment_name ${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME}
+
+#            launch_job/atari/${PLATFORM}_isdqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS \
+#                --target_update_period $TARGET_UPDATE_PERIOD \
+#                --n_bellman_iterations $N_BELLMAN_ITERATIONS --experiment_name ${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_K${N_BELLMAN_ITERATIONS}_${GAME}
 
 #            # UNFREEZE FIRST HEAD FALSE
 #            launch_job/atari/${PLATFORM}_gisdqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS \
