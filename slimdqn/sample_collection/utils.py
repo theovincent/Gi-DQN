@@ -15,10 +15,26 @@ def select_action(best_action_fn, params, state, key, n_actions, epsilon_fn, n_t
     )
 
 
+@partial(jax.jit, static_argnames=("best_action_fn", "n_actions", "epsilon_fn"))
+def select_action_epsilon_td(best_action_fn, params, state, key, n_actions, epsilon_fn, n_training_steps):
+    uniform_key, action_key = jax.random.split(key)
+    return jnp.where(
+        jax.random.uniform(uniform_key) <= epsilon_fn(n_training_steps),  # if uniform < epsilon,
+        best_action_fn(params, state)[1],  # take greedy action w.r.t H-function(s)
+        best_action_fn(params, state)[0],  # otherwise, take a greedy action
+    )
+
+
 def collect_single_sample(key, env, agent, rb: ReplayBuffer, p, epsilon_schedule, n_training_steps: int):
-    action = select_action(
-        agent.best_action, agent.params, env.state, key, env.n_actions, epsilon_schedule, n_training_steps
-    ).item()
+
+    if p["epsilon_td"]:
+        action = select_action_epsilon_td(
+            agent.best_action, agent.params, env.state, key, env.n_actions, epsilon_schedule, n_training_steps
+        ).item()
+    else:
+        action = select_action(
+            agent.best_action, agent.params, env.state, key, env.n_actions, epsilon_schedule, n_training_steps
+        ).item()
 
     obs = env.observation
     reward, absorbing = env.step(action)

@@ -211,6 +211,15 @@ def add_omega(parser: argparse.ArgumentParser):
     )
 
 
+def add_epsilon_td(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "-etd",
+        "--epsilon_td",
+        help="Take greedy action w.r.t. H-Function instead of a random action.",
+        action="store_true",
+        default=False,
+    )
+
 @output_added_arguments
 def add_dqn_arguments(parser: argparse.ArgumentParser):
     pass
@@ -225,6 +234,11 @@ def add_sdqn_arguments(parser: argparse.ArgumentParser):
 def add_dqnrcshared_arguments(parser: argparse.ArgumentParser):
     add_weight_decay(parser)
 
+@output_added_arguments
+def add_epstddqnrcshared_arguments(parser: argparse.ArgumentParser):
+    add_weight_decay(parser)
+    add_epsilon_td(parser)
+
 
 @output_added_arguments
 def add_idqnshared_arguments(parser: argparse.ArgumentParser):
@@ -235,6 +249,12 @@ def add_idqnshared_arguments(parser: argparse.ArgumentParser):
 def add_gidqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
+
+@output_added_arguments
+def add_epstdgidqnshared_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_weight_decay(parser)
+    add_epsilon_td(parser)
 
 
 @output_added_arguments
