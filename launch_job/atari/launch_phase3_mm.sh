@@ -13,6 +13,8 @@ PLATFORM="local/local"  # cluster/cluster lichtenberg/cluster local/local
 TARGET_UPDATE_PERIOD_DQN=3000
 LEARNING_RATE_DQN=10e-5
 
+LEARNING_RATE_QRC=10e-5
+
 TARGET_UPDATE_PERIOD_IDQN=10000
 LEARNING_RATE_IDQN=25e-5
 
@@ -23,18 +25,22 @@ for GAME in Gopher YarsRevenge Enduro Asterix Alien
 do
     for OMEGA in 0.01 0.1 1 10 100
     do
-          launch_job/atari/${PLATFORM}_mmdqn.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS \
-          --learning_rate $LEARNING_RATE_DQN --target_update_period $TARGET_UPDATE_PERIOD_DQN --omega $OMEGA \
-          --experiment_name "LR${LEARNING_RATE_DQN}_T${TARGET_UPDATE_PERIOD_DQN}_OMG${OMEGA}_${GAME}"
+#          launch_job/atari/${PLATFORM}_mmdqn.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS \
+#          --learning_rate $LEARNING_RATE_DQN --target_update_period $TARGET_UPDATE_PERIOD_DQN --omega $OMEGA \
+#          --experiment_name "LR${LEARNING_RATE_DQN}_T${TARGET_UPDATE_PERIOD_DQN}_OMG${OMEGA}_${GAME}"
 
-          launch_job/atari/${PLATFORM}_mmidqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS  \
-          --learning_rate $LEARNING_RATE_IDQN --target_update_period $TARGET_UPDATE_PERIOD_IDQN \
-          --n_bellman_iterations $N_BELLMAN_ITERATIONS --omega $OMEGA \
-          --experiment_name "LR${LEARNING_RATE_IDQN}_T${TARGET_UPDATE_PERIOD_IDQN}_K${N_BELLMAN_ITERATIONS}_OMG${OMEGA}_${GAME}"
+          launch_job/atari/${PLATFORM}_mmdqnrcshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS \
+              --learning_rate $LEARNING_RATE_QRC --omega $OMEGA \
+              --weight_decay $WEIGHT_DECAY --experiment_name "LR${LEARNING_RATE_QRC}_WD${WEIGHT_DECAY}_OMG${OMEGA}_${GAME}"
 
-          launch_job/atari/${PLATFORM}_mmgidqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS  \
-              --learning_rate $LEARNING_RATE_GIDQN --target_update_period $TARGET_UPDATE_PERIOD_GIDQN \
-              --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY  --omega $OMEGA \
-              --experiment_name "LR${LEARNING_RATE_GIDQN}_T${TARGET_UPDATE_PERIOD_GIDQN}_K${N_BELLMAN_ITERATIONS}_WD${WEIGHT_DECAY}_OMG${OMEGA}_${GAME}"
+#          launch_job/atari/${PLATFORM}_mmidqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS  \
+#          --learning_rate $LEARNING_RATE_IDQN --target_update_period $TARGET_UPDATE_PERIOD_IDQN \
+#          --n_bellman_iterations $N_BELLMAN_ITERATIONS --omega $OMEGA \
+#          --experiment_name "LR${LEARNING_RATE_IDQN}_T${TARGET_UPDATE_PERIOD_IDQN}_K${N_BELLMAN_ITERATIONS}_OMG${OMEGA}_${GAME}"
+#
+#          launch_job/atari/${PLATFORM}_mmgidqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS  \
+#              --learning_rate $LEARNING_RATE_GIDQN --target_update_period $TARGET_UPDATE_PERIOD_GIDQN \
+#              --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY  --omega $OMEGA \
+#              --experiment_name "LR${LEARNING_RATE_GIDQN}_T${TARGET_UPDATE_PERIOD_GIDQN}_K${N_BELLMAN_ITERATIONS}_WD${WEIGHT_DECAY}_OMG${OMEGA}_${GAME}"
     done
 done
