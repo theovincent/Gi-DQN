@@ -21,7 +21,7 @@ LEARNING_RATE_IDQN=25e-5
 TARGET_UPDATE_PERIOD_GIDQN=10000
 LEARNING_RATE_GIDQN=10e-5
 
-for GAME in Atlantis BoxingBreakout Assault SpaceInvaders Asterix Enduro Phoenix Pong KungFuMaster NameThisGame Qbert MsPAcman VideoPinball Krull RoadRunner StarGunner \
+for GAME in Atlantis Boxing Breakout Assault SpaceInvaders Asterix Enduro Phoenix Pong KungFuMaster NameThisGame Qbert MsPAcman VideoPinball Krull RoadRunner StarGunner \
             Gopher CrazyClimber Jamesbond Frostbite YarsRevenge Riverraid Amidar Alien
 do
           launch_job/atari/${PLATFORM}_dqn.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS \
