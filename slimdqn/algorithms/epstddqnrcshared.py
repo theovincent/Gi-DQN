@@ -101,7 +101,7 @@ class EPSTDDQNRCShared:
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray):
         # computing TD-based action selection from H-Functions
-        h_action = jnp.argmax(jnp.linalg.norm(self.network.apply(params, state)[1]))
+        h_action = jnp.argmax(jnp.absolute(self.network.apply(params, state)[1]))
         q_action = jnp.argmax(self.network.apply(params, state)[0])
         return q_action, h_action
 
