@@ -20,12 +20,12 @@ do
     for EPS_END in 0.05 0.15 0.2 #0.01 0.1
     do
     launch_job/atari/${PLATFORM}_epstddqnrcshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS \
-        --learning_rate $LEARNING_RATE_QRC  --epsilon_td --epsilon_end $EPS_END \
+        --learning_rate $LEARNING_RATE_QRC --epsilon_end $EPS_END \
         --weight_decay $WEIGHT_DECAY --experiment_name "LR${LEARNING_RATE_QRC}_WD${WEIGHT_DECAY}_EPSTD_END${EPS_END}_${GAME}"
 
     launch_job/atari/${PLATFORM}_epstdgidqnshared.sh --first_seed 1 --last_seed 5 --n_parallel_seeds 1 $SHARED_ARGS \
         --learning_rate $LEARNING_RATE_GIDQN --target_update_period $TARGET_UPDATE_PERIOD_GIDQN  \
-        --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY --epsilon_td --epsilon_end $EPS_END \
+        --n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY --epsilon_end $EPS_END \
         --experiment_name "LR${LEARNING_RATE_GIDQN}_T${TARGET_UPDATE_PERIOD_GIDQN}_K${N_BELLMAN_ITERATIONS}_WD${WEIGHT_DECAY}_EPSTD_END${EPS_END}_${GAME}"
     done
 done

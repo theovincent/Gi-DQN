@@ -47,7 +47,7 @@ def run(argvs=sys.argv[1:]):
         weight_decay=p["weight_decay"],
         adam_eps=1.5e-4,
     )
-    assert p["epsilon_td"], "pass --epsilon_td"
+    p["epsilon_td"] = True
     train(train_key, p, agent, env, rb)
 
 
