@@ -217,11 +217,6 @@ def add_dqn_arguments(parser: argparse.ArgumentParser):
 
 
 @output_added_arguments
-def add_sdqn_arguments(parser: argparse.ArgumentParser):
-    pass
-
-
-@output_added_arguments
 def add_dqnrcshared_arguments(parser: argparse.ArgumentParser):
     add_weight_decay(parser)
 
@@ -264,6 +259,11 @@ def add_mmgidqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
     add_omega(parser)
+
+
+@output_added_arguments
+def add_sdqn_arguments(parser: argparse.ArgumentParser):
+    pass
 
 
 @output_added_arguments

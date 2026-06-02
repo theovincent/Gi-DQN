@@ -83,14 +83,14 @@ class SDQN:
 
     def loss(self, params: FrozenDict, sample: ReplayElement, importance_weight):
         target = self.compute_target(params, sample)
-        q_value = self.network.apply(params, sample.state)[1:, sample.action]
+        q_value = self.network.apply(params, sample.state)[1, sample.action]
         return importance_weight * jnp.square(q_value - jax.lax.stop_gradient(target)), jnp.square(
             q_value - jax.lax.stop_gradient(target)
         )
 
     def compute_target(self, params: FrozenDict, sample: ReplayElement):
         return sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * jnp.max(
-            self.network.apply(params, sample.next_state)[:1, :]
+            self.network.apply(params, sample.next_state)[0]
         )
 
     @partial(jax.jit, static_argnames="self")
