@@ -9,7 +9,7 @@ from slimdqn.algorithms.architectures.dqn import DQNNet
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 
-class DQN:
+class C51:
     def __init__(
         self,
         key: jax.random.PRNGKey,
@@ -22,8 +22,13 @@ class DQN:
         update_to_data: int,
         target_update_period: int,
         adam_eps: float = 1e-8,
+        n_bins: int = 51,
     ):
-        self.network = DQNNet(features, n_actions, n_heads=1, n_h_heads=0)
+        self.vmin, self.vmax = -10, 10
+        self.n_actions = n_actions
+        self.n_bins = n_bins
+        self.support = jnp.linspace(self.vmin, self.vmax, self.n_bins)
+        self.network = DQNNet(features, self.n_actions * self.n_bins, n_heads=1, n_h_heads=0)
         self.params = self.network.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
@@ -74,24 +79,53 @@ class DQN:
         return params, optimizer_state, per_sample_q_loss
 
     def loss_on_batch(self, params: FrozenDict, params_target: FrozenDict, samples, importance_weights):
-        q_losses, q_losses = jax.vmap(self.loss, in_axes=(None, None, 0, 0))(
+        losses, q_losses = jax.vmap(self.loss, in_axes=(None, None, 0, 0))(
             params, params_target, samples, importance_weights
         )
-        return q_losses.mean(), q_losses
+        return losses.mean(), q_losses
 
     def loss(self, params: FrozenDict, params_target: FrozenDict, sample: ReplayElement, importance_weight):
-        target = self.compute_target(params_target, sample)
-        q_value = self.network.apply(params, sample.state)[sample.action]
-        return importance_weight * jnp.square(q_value - target), jnp.square(q_value - target)
+        # target = self.compute_target(params_target, sample)
+        # q_value = self.network.apply(params, sample.state)[sample.action]
+        M_logits = self.network.apply(params, sample.state).reshape(self.n_actions, self.n_bins)
+        M_prob = jax.nn.softmax(M_logits, axis=-1)
+
+        m = self.compute_target(params_target, sample)
+
+        return -jnp.sum(m * jnp.log(M_prob[sample.action, :])) * importance_weight, jnp.square(
+            M_prob[sample.action, :] - m
+        )
+        # return importance_weight * jnp.square(q_value - target), jnp.square(q_value - target)
 
     def compute_target(self, params: FrozenDict, sample: ReplayElement):
-        return sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * jnp.max(
-            self.network.apply(params, sample.next_state)
+        M_next_logits = self.network.apply(params, sample.next_state).reshape(self.n_actions, self.n_bins)
+        M_next_prob = jax.nn.softmax(M_next_logits, axis=-1)  # TODO check for -inf/NaN, use jax.nn.log_softmax() ?
+        Q = M_next_prob @ self.support
+        a_star = jnp.argmax(Q)
+        M_next_prob = M_next_prob[a_star, :]
+
+        non_aligned_tgt_atoms = (
+            sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * self.support
         )
+        clipped_non_aligned_atoms = jnp.clip(non_aligned_tgt_atoms, self.vmin, self.vmax)
+
+        fractional_coord_b = (clipped_non_aligned_atoms - self.support[0]) / (
+            (self.vmax - self.vmin) / (self.n_bins - 1)
+        )
+        lower, upper = jnp.floor(fractional_coord_b).astype(jnp.int32), jnp.ceil(fractional_coord_b).astype(jnp.int32)
+
+        m = jnp.zeros(self.n_bins)
+        m = m.at[lower].add(M_next_prob * (upper - fractional_coord_b))
+        m = m.at[upper].add(M_next_prob * (fractional_coord_b - lower))
+        m = m.at[lower].add(jnp.where(lower == upper, M_next_prob, 0.0))
+        print(f"m.sum should be 1: {m.sum}")
+        return m
 
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray):
-        return jnp.argmax(self.network.apply(params, state))
+        M = self.network.apply(params, state).reshape(self.n_actions, self.n_bins)
+        Q = M @ self.support
+        return jnp.argmax(Q)
 
     def get_model(self):
         return {"params": self.params}

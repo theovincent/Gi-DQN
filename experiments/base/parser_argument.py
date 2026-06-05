@@ -211,6 +211,16 @@ def add_omega(parser: argparse.ArgumentParser):
     )
 
 
+def add_nbins(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "-nbins",
+        "--number_of_bins",
+        help="Number of bins to use.",
+        type=int,
+        default=51,
+    )
+
+
 @output_added_arguments
 def add_dqn_arguments(parser: argparse.ArgumentParser):
     pass
@@ -276,3 +286,8 @@ def add_gisdqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
     add_freeze_first_head(parser)
+
+
+@output_added_arguments
+def add_c51_arguments(parser: argparse.ArgumentParser):
+    add_nbins(parser)
