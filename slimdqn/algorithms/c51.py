@@ -128,7 +128,7 @@ class C51:
         return target_distribution
 
     @partial(jax.jit, static_argnames="self")
-    def best_action_index(self, params: FrozenDict, state: jnp.ndarray):
+    def best_action(self, params: FrozenDict, state: jnp.ndarray):
         distribution_logits = self.network.apply(params, state).reshape(self.n_actions, self.n_bins)
         distributional_next_probabilities = jax.nn.softmax(distribution_logits, axis=-1)
         q_values = distributional_next_probabilities @ self.support
