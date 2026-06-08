@@ -85,47 +85,54 @@ class C51:
         return losses.mean(), q_losses
 
     def loss(self, params: FrozenDict, params_target: FrozenDict, sample: ReplayElement, importance_weight):
-        # target = self.compute_target(params_target, sample)
-        # q_value = self.network.apply(params, sample.state)[sample.action]
-        M_logits = self.network.apply(params, sample.state).reshape(self.n_actions, self.n_bins)
-        M_prob = jax.nn.softmax(M_logits, axis=-1)
+        distribution_logits = self.network.apply(params, sample.state).reshape(self.n_actions, self.n_bins)
+        distribution_probabilities = jax.nn.log_softmax(
+            distribution_logits, axis=-1
+        )  # log softmax for numerical stability
 
-        m = self.compute_target(params_target, sample)
+        target_distribution = self.compute_target(params_target, sample)
 
-        return -jnp.sum(m * jnp.log(M_prob[sample.action, :])) * importance_weight, jnp.square(
-            M_prob[sample.action, :] - m
-        )
-        # return importance_weight * jnp.square(q_value - target), jnp.square(q_value - target)
+        cross_entropy = -jnp.sum(target_distribution * distribution_probabilities[sample.action, :])
+
+        return cross_entropy * importance_weight, cross_entropy
 
     def compute_target(self, params: FrozenDict, sample: ReplayElement):
-        M_next_logits = self.network.apply(params, sample.next_state).reshape(self.n_actions, self.n_bins)
-        M_next_prob = jax.nn.softmax(M_next_logits, axis=-1)  # TODO check for -inf/NaN, use jax.nn.log_softmax() ?
-        Q = M_next_prob @ self.support
-        a_star = jnp.argmax(Q)
-        M_next_prob = M_next_prob[a_star, :]
+        distributional_next_logits = self.network.apply(params, sample.next_state).reshape(self.n_actions, self.n_bins)
+        distributional_next_probabilities = jax.nn.softmax(distributional_next_logits, axis=-1)
+        q_values = distributional_next_probabilities @ self.support
+        best_action_index = jnp.argmax(q_values)
+        distribution_next_probabilities_target = distributional_next_probabilities[best_action_index, :]
 
-        non_aligned_tgt_atoms = (
+        non_aligned_target_atoms = (
             sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * self.support
         )
-        clipped_non_aligned_atoms = jnp.clip(non_aligned_tgt_atoms, self.vmin, self.vmax)
+        clipped_non_aligned_atoms = jnp.clip(non_aligned_target_atoms, self.vmin, self.vmax)
 
-        fractional_coord_b = (clipped_non_aligned_atoms - self.support[0]) / (
+        fractional_coordinate = (clipped_non_aligned_atoms - self.support[0]) / (
             (self.vmax - self.vmin) / (self.n_bins - 1)
         )
-        lower, upper = jnp.floor(fractional_coord_b).astype(jnp.int32), jnp.ceil(fractional_coord_b).astype(jnp.int32)
+        lower, upper = jnp.floor(fractional_coordinate).astype(jnp.int32), jnp.ceil(fractional_coordinate).astype(
+            jnp.int32
+        )
 
-        m = jnp.zeros(self.n_bins)
-        m = m.at[lower].add(M_next_prob * (upper - fractional_coord_b))
-        m = m.at[upper].add(M_next_prob * (fractional_coord_b - lower))
-        m = m.at[lower].add(jnp.where(lower == upper, M_next_prob, 0.0))
-        print(f"m.sum should be 1: {m.sum}")
-        return m
+        target_distribution = jnp.zeros(self.n_bins)
+        target_distribution = target_distribution.at[lower].add(
+            distribution_next_probabilities_target * (upper - fractional_coordinate)
+        )
+        target_distribution = target_distribution.at[upper].add(
+            distribution_next_probabilities_target * (fractional_coordinate - lower)
+        )
+        target_distribution = target_distribution.at[lower].add(
+            jnp.where(lower == upper, distribution_next_probabilities_target, 0.0)
+        )
+        return target_distribution
 
     @partial(jax.jit, static_argnames="self")
-    def best_action(self, params: FrozenDict, state: jnp.ndarray):
-        M = self.network.apply(params, state).reshape(self.n_actions, self.n_bins)
-        Q = M @ self.support
-        return jnp.argmax(Q)
+    def best_action_index(self, params: FrozenDict, state: jnp.ndarray):
+        distribution_logits = self.network.apply(params, state).reshape(self.n_actions, self.n_bins)
+        distributional_next_probabilities = jax.nn.softmax(distribution_logits, axis=-1)
+        q_values = distributional_next_probabilities @ self.support
+        return jnp.argmax(q_values)
 
     def get_model(self):
         return {"params": self.params}
