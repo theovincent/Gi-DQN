@@ -95,26 +95,24 @@ class C51RCShared:
         q_logits, h_logits = q_logits.reshape(self.n_actions, self.n_bins), h_logits.reshape(
             self.n_actions, self.n_bins
         )  # (n_actions, n_bins), (n_actions, n_bins)
-        q_distribution = jax.nn.softmax(q_logits, axis=-1)[sample.action, :]  # (n_bins,)
+        q_log_distribution = jax.nn.log_softmax(q_logits, axis=-1)[sample.action, :]  # (n_bins,)
         h_logits = h_logits[sample.action, :]  # (n_bins,)
 
         target_distribution = self.compute_target(params, sample)  # (n_bins,)
 
         # KL(Target_Distr. || Return_Distr.) needs to be minimized
         td_loss = jnp.sum(target_distribution * jax.lax.stop_gradient(h_logits), axis=-1) - jnp.sum(
-            jax.lax.stop_gradient(target_distribution) * jnp.log(q_distribution), axis=-1
+            jax.lax.stop_gradient(target_distribution) * q_log_distribution, axis=-1
         )
 
         # Donsker-Varadhan needs to be maximized
-        h_loss = jnp.sum(jax.lax.stop_gradient(target_distribution) * h_logits, axis=-1) - jnp.log(
-            jnp.sum(jax.lax.stop_gradient(q_distribution) * jnp.exp(h_logits), axis=-1)
+        h_loss = jnp.sum(jax.lax.stop_gradient(target_distribution) * h_logits, axis=-1) - jax.scipy.special.logsumexp(
+            h_logits + jax.lax.stop_gradient(q_log_distribution)
         )
 
-        return (
-            importance_weight * (td_loss - h_loss),
-            jnp.sum(jax.lax.stop_gradient(target_distribution) * jnp.log(q_distribution), axis=-1),
-            1,
-        )  # jnp.square(h_value - td_error)
+        cross_entropy = -jnp.sum(jax.lax.stop_gradient(target_distribution) * q_log_distribution, axis=-1)
+
+        return (importance_weight * (td_loss - h_loss), cross_entropy, h_loss)
 
     def compute_target(self, params: FrozenDict, sample: ReplayElement):
         q_next_logits = self.network.apply(params, sample.next_state)[0].reshape(
