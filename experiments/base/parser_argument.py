@@ -291,3 +291,9 @@ def add_gisdqnshared_arguments(parser: argparse.ArgumentParser):
 @output_added_arguments
 def add_c51_arguments(parser: argparse.ArgumentParser):
     add_nbins(parser)
+
+
+@output_added_arguments
+def add_c51rcshared_arguments(parser: argparse.ArgumentParser):
+    add_weight_decay(parser)
+    add_nbins(parser)
