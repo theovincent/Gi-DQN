@@ -45,6 +45,8 @@ def run(argvs=sys.argv[1:]):
         target_update_period=p["target_update_period"],
         adam_eps=1.5e-4,
         n_bins=p["number_of_bins"],
+        vmin=-10,
+        vmax=10,
     )
     train(train_key, p, agent, env, rb)
 

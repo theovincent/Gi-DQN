@@ -23,8 +23,10 @@ class C51:
         target_update_period: int,
         adam_eps: float = 1e-8,
         n_bins: int = 51,
+        vmin: int = -10,
+        vmax: int = 10,
     ):
-        self.vmin, self.vmax = -10, 10
+        self.vmin, self.vmax = vmin, vmax
         self.n_actions = n_actions
         self.n_bins = n_bins
         self.support = jnp.linspace(self.vmin, self.vmax, self.n_bins)
@@ -66,7 +68,7 @@ class C51:
             }
             self.cumulative_loss = 0
 
-    @partial(jax.jit, static_argnames="self")
+    # @partial(jax.jit, static_argnames="self")
     def learn_on_batch(
         self, params: FrozenDict, params_target: FrozenDict, optimizer_state, batch_samples, importance_weights
     ):
@@ -95,35 +97,37 @@ class C51:
         return cross_entropy * importance_weight, cross_entropy
 
     def compute_target(self, params: FrozenDict, sample: ReplayElement):
-        next_logits = self.network.apply(params, sample.next_state).reshape(self.n_actions, self.n_bins)
-        next_probabilities = jax.nn.softmax(next_logits, axis=-1)
-        next_q_values = next_probabilities @ self.support
-        best_action_index = jnp.argmax(next_q_values)
-        next_probabilities_target = next_probabilities[best_action_index, :]
+        next_logits = self.network.apply(params, sample.next_state).reshape(
+            self.n_actions, self.n_bins
+        )  # (n_actions, n_bins)
+        next_probabilities = jax.nn.softmax(next_logits, axis=-1)  # (n_actions, n_bins)
+        next_q_values = next_probabilities @ self.support  # (n_actions,)
+        best_action_index = jnp.argmax(next_q_values)  # (1,)
+        next_probabilities_target = next_probabilities[best_action_index, :]  # (n_bins,)
 
         non_aligned_target_atoms = (
             sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * self.support
-        )
-        clipped_non_aligned_target_atoms = jnp.clip(non_aligned_target_atoms, self.vmin, self.vmax)
+        )  # (n_bins,)
+        clipped_non_aligned_target_atoms = jnp.clip(non_aligned_target_atoms, self.vmin, self.vmax)  # (n_bins,)
 
-        fractional_coordinate = (clipped_non_aligned_target_atoms - self.support[0]) / (
+        fractional_coordinates = (clipped_non_aligned_target_atoms - self.support[0]) / (
             (self.vmax - self.vmin) / (self.n_bins - 1)
-        )
-        lower, upper = jnp.floor(fractional_coordinate).astype(jnp.int32), jnp.ceil(fractional_coordinate).astype(
+        )  # (n_bins,)
+        lower, upper = jnp.floor(fractional_coordinates).astype(jnp.int32), jnp.ceil(fractional_coordinates).astype(
             jnp.int32
-        )
+        )  # (n_bins,), (n_bins,)
 
-        target_distribution = jnp.zeros(self.n_bins)
+        target_distribution = jnp.zeros(self.n_bins)  # (n_bins,)
         target_distribution = target_distribution.at[lower].add(
-            next_probabilities_target * (upper - fractional_coordinate)
-        )
+            next_probabilities_target * (upper - fractional_coordinates)
+        )  # (n_bins,)
         target_distribution = target_distribution.at[upper].add(
-            next_probabilities_target * (fractional_coordinate - lower)
-        )
+            next_probabilities_target * (fractional_coordinates - lower)
+        )  # (n_bins,)
         target_distribution = target_distribution.at[lower].add(
             jnp.where(lower == upper, next_probabilities_target, 0.0)
-        )
-        return target_distribution
+        )  # (n_bins,)
+        return target_distribution  # (n_bins,)
 
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray):
