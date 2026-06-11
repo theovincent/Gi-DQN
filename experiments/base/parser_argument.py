@@ -303,3 +303,10 @@ def add_c51rcshared_arguments(parser: argparse.ArgumentParser):
 def add_ic51shared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_nbins(parser)
+
+
+@output_added_arguments
+def add_gic51shared_arguments(parser: argparse.ArgumentParser):
+    add_weight_decay(parser)
+    add_nbins(parser)
+    add_n_bellman_iterations(parser)
