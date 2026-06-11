@@ -40,7 +40,6 @@ class ic51Shared:
         vmax: int = 10,
     ):
         self.vmin, self.vmax = vmin, vmax
-        self.n_actions = n_actions
         self.n_bins = n_bins
         self.support = jnp.linspace(self.vmin, self.vmax, self.n_bins)
         self.n_actions = n_actions
@@ -177,9 +176,9 @@ class ic51Shared:
 
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray):
-        logits = self.online_networks.apply(params, state).reshape(-1, self.n_actions, self.n_bins).mean(axis=0)
+        logits = self.online_networks.apply(params, state).reshape(-1, self.n_actions, self.n_bins)
         probabilities = jax.nn.softmax(logits, axis=-1)
-        q_values = probabilities @ self.support
+        q_values = (probabilities @ self.support).mean(axis=0)
         return jnp.argmax(q_values)
 
     def get_model(self):

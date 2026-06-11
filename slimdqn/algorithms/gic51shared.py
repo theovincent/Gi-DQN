@@ -6,7 +6,6 @@ import numpy as np
 import optax
 from flax.core import FrozenDict
 
-from cheat_sheet import cross_entropy
 from slimdqn.algorithms.architectures.dqn import DQNNet
 
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
@@ -161,15 +160,10 @@ class GiC51Shared:
 
         target_loss = jnp.sum(target_distribution[1:, :] * jax.lax.stop_gradient(h_logits), axis=-1)  # (K-1,)
 
-        # total:
-        # td_loss = jnp.sum(target_distribution[1:, :] * jax.lax.stop_gradient(h_logits), axis=-1) - jnp.sum(
-        #     jax.lax.stop_gradient(target_distribution[1:, :]) * q_log_distribution[1:, sample.action, :], axis=-1
-        # )  # (K,)
-
         h_loss = jnp.sum(
             jax.lax.stop_gradient(target_distribution[1:, :]) * h_logits, axis=-1
         ) - jax.scipy.special.logsumexp(
-            h_logits + jax.lax.stop_gradient(q_log_distribution[1:, sample.action, :])
+            h_logits + jax.lax.stop_gradient(q_log_distribution[1:, sample.action, :]), axis=-1
         )  # (K-1,)
 
         target_loss = jnp.append(jnp.zeros(1), target_loss)  # (K,)
@@ -179,7 +173,9 @@ class GiC51Shared:
             jax.lax.stop_gradient(target_distribution) * q_log_distribution[:, sample.action, :], axis=-1
         )  # (K,)
 
-        cross_entropy = -jnp.sum(jax.lax.stop_gradient(target_distribution) * q_logits[:, sample.action, :], axis=-1)
+        cross_entropy = -jnp.sum(
+            jax.lax.stop_gradient(target_distribution) * q_log_distribution[:, sample.action, :], axis=-1
+        )
 
         return (importance_weight * (td_loss - h_loss), cross_entropy, h_loss)
 
@@ -216,9 +212,9 @@ class GiC51Shared:
 
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray):
-        logits = self.online_networks.apply(params, state)[0].reshape(-1, self.n_actions, self.n_bins).mean(axis=0)
+        logits = self.online_networks.apply(params, state)[0].reshape(-1, self.n_actions, self.n_bins)
         probabilities = jax.nn.softmax(logits, axis=-1)
-        q_values = probabilities @ self.support
+        q_values = (probabilities @ self.support).mean(axis=0)
         return jnp.argmax(q_values)
 
     def get_model(self):
