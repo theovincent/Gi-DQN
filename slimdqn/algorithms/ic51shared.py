@@ -120,11 +120,8 @@ class ic51Shared:
 
         next_logits_first_target = self.root_network.apply(target_params, sample.next_state).reshape(
             self.n_actions, self.n_bins
-        )  # (1, n_actions, n_bins)
-        next_distribution_first_target = jax.nn.softmax(next_logits_first_target, axis=-1)  # (1, n_actions, n_bins)
-        next_log_distribution_first_target = jax.nn.log_softmax(
-            next_logits_first_target, axis=-1
         )  # (n_actions, n_bins)
+        next_distribution_first_target = jax.nn.softmax(next_logits_first_target, axis=-1)  # (n_actions, n_bins)
 
         next_logits_remaining_targets = self.online_networks.apply(params, sample.next_state).reshape(
             -1, self.n_actions, self.n_bins
@@ -134,16 +131,10 @@ class ic51Shared:
         next_distribution_remaining_targets = jax.nn.softmax(
             next_logits_remaining_targets, axis=-1
         )  # ( K-1, n_actions, n_bins)
-        next_log_distribution_remaining_targets = jax.nn.log_softmax(
-            next_logits_remaining_targets, axis=-1
-        )  # ( K-1, n_actions, n_bins)
 
         next_distribution = jnp.concatenate(
             [next_distribution_first_target[None, :, :], next_distribution_remaining_targets], axis=0
-        )
-        next_log_distribution = jnp.concatenate(
-            [next_log_distribution_first_target[None, :, :], next_log_distribution_remaining_targets], axis=0
-        )  # (K, n_actions,n_bins)
+        )  # ( K, n_actions, n_bins)
 
         target_distribution = self.compute_target(next_distribution, sample)  # (K, n_bins)
 
@@ -186,7 +177,7 @@ class ic51Shared:
 
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray):
-        logits = self.online_networks.apply(params, state).mean(axis=0).reshape(-1, self.n_actions, self.n_bins)
+        logits = self.online_networks.apply(params, state).reshape(-1, self.n_actions, self.n_bins).mean(axis=0)
         probabilities = jax.nn.softmax(logits, axis=-1)
         q_values = probabilities @ self.support
         return jnp.argmax(q_values)
