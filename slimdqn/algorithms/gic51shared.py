@@ -177,9 +177,17 @@ class GiC51Shared:
 
         cross_entropy = -jnp.sum(
             jax.lax.stop_gradient(target_distribution) * q_log_distribution[:, sample.action, :], axis=-1
-        )
+        )  # (K,)
 
-        return (importance_weight * (td_loss - h_loss), cross_entropy, h_loss[1:])
+        suboptimality = (
+            cross_entropy + jnp.sum(jax.scipy.special.xlogy(target_distribution, target_distribution), axis=-1) - h_loss
+        )  # KL - DV >= 0
+
+        return (
+            importance_weight * (td_loss - h_loss),
+            cross_entropy,
+            suboptimality[1:],
+        )
 
     def compute_target(self, next_probabilities, sample: ReplayElement):
         next_q_values = next_probabilities @ self.support  # (K, n_actions)
