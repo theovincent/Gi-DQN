@@ -192,7 +192,7 @@ def add_weight_decay(parser: argparse.ArgumentParser):
     )
 
 
-def add_freeze_first_head(parser: argparse.ArgumentParser):
+def add_unfreeze_first_head(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--unfreeze_first_head",
         help="Whether the first network should be fixed or not for the duration of a Bellman iteration",
@@ -285,7 +285,7 @@ def add_isdqnshared_arguments(parser: argparse.ArgumentParser):
 def add_gisdqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
-    add_freeze_first_head(parser)
+    add_unfreeze_first_head(parser)
 
 
 @output_added_arguments
@@ -310,3 +310,11 @@ def add_gic51shared_arguments(parser: argparse.ArgumentParser):
     add_weight_decay(parser)
     add_nbins(parser)
     add_n_bellman_iterations(parser)
+
+
+@output_added_arguments
+def add_gisc51shared_arguments(parser: argparse.ArgumentParser):
+    add_weight_decay(parser)
+    add_nbins(parser)
+    add_n_bellman_iterations(parser)
+    add_unfreeze_first_head(parser)
