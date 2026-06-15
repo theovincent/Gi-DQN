@@ -318,3 +318,9 @@ def add_gisc51shared_arguments(parser: argparse.ArgumentParser):
     add_nbins(parser)
     add_n_bellman_iterations(parser)
     add_unfreeze_first_head(parser)
+
+
+@output_added_arguments
+def add_isc51rcshared_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_nbins(parser)
