@@ -324,3 +324,9 @@ def add_gisc51shared_arguments(parser: argparse.ArgumentParser):
 def add_isc51rcshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_nbins(parser)
+
+
+@output_added_arguments
+def add_mmc51_arguments(parser: argparse.ArgumentParser):
+    add_omega(parser)
+    add_nbins(parser)
