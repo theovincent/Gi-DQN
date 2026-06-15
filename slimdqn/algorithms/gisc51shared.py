@@ -127,41 +127,37 @@ class GiSC51Shared:
 
         return total_losses.mean(axis=0).sum(), (q_losses, h_losses)
 
-    def loss(self, params: FrozenDict, target_params: FrozenDict, sample: ReplayElement, importance_weight):
+    def loss(self, params: FrozenDict, sample: ReplayElement, importance_weight):
         q_logits, h_logits = self.online_networks.apply(params, sample.state)
-        q_logits, h_logits = q_logits.reshape(-1, self.n_actions, self.n_bins), h_logits.reshape(
+        q_logits, h_logits = q_logits.reshape(-1, self.n_actions, self.n_bins)[1:], h_logits.reshape(
             -1, self.n_actions, self.n_bins
-        )  # (K, n_actions, n_bins), (K-1, n_actions, n_bins)
+        )  # (K, n_actions, n_bins), (K-1 if not self.unfreeze_first_head else K, n_actions, n_bins)
         q_log_distribution = jax.nn.log_softmax(q_logits, axis=-1)  # (K, n_actions, n_bins)
-        h_logits = h_logits[:, sample.action, :]  # (K-1, n_bins)
+        h_logits = h_logits[:, sample.action, :]  # (K-1 if not self.unfreeze_first_head else K, n_bins)
 
-        next_q_logits_first_target = self.root_network.apply(target_params, sample.next_state).reshape(
-            self.n_actions, self.n_bins
-        )  # (n_actions, n_bins)
-        next_q_distribution_first_target = jax.nn.softmax(next_q_logits_first_target, axis=-1)  # (n_actions, n_bins)
-        next_q_logits_remaining_targets = self.online_networks.apply(params, sample.next_state)[0].reshape(
+        next_q_logits_targets = self.online_networks.apply(params, sample.next_state)[0].reshape(
             -1, self.n_actions, self.n_bins
         )[
             :-1
-        ]  # (K-1, n_actions, n_bins)
-        next_q_distribution_remaining_targets = jax.nn.softmax(next_q_logits_remaining_targets, axis=-1)
+        ]  # (K, n_actions, n_bins)
+        next_q_distribution_targets = jax.nn.softmax(next_q_logits_targets, axis=-1)
 
-        next_q_distribution = jnp.concatenate(
-            [next_q_distribution_first_target[None, :, :], next_q_distribution_remaining_targets], axis=0
-        )  # (K, n_actions, n_bins)
+        target_distribution = self.compute_target(next_q_distribution_targets, sample)  # (K, n_bins)
 
-        target_distribution = self.compute_target(next_q_distribution, sample)  # (K, n_bins)
-
-        target_loss = jnp.sum(target_distribution[1:, :] * jax.lax.stop_gradient(h_logits), axis=-1)  # (K-1,)
+        target_loss = jnp.sum(
+            target_distribution[1 - int(self.unfreeze_first_head) :, :] * jax.lax.stop_gradient(h_logits), axis=-1
+        )  # (K-1 if not self.unfreeze_first_head else K,)
 
         h_loss = jnp.sum(
-            jax.lax.stop_gradient(target_distribution[1:, :]) * h_logits, axis=-1
+            jax.lax.stop_gradient(target_distribution[1 - int(self.unfreeze_first_head) :, :]) * h_logits, axis=-1
         ) - jax.scipy.special.logsumexp(
-            h_logits + jax.lax.stop_gradient(q_log_distribution[1:, sample.action, :]), axis=-1
-        )  # (K-1,)
+            h_logits + jax.lax.stop_gradient(q_log_distribution[1 - int(self.unfreeze_first_head) :, sample.action, :]),
+            axis=-1,
+        )  # (K-1 if not self.unfreeze_first_head else K,)
 
-        target_loss = jnp.append(jnp.zeros(1), target_loss)  # (K,)
-        h_loss = jnp.append(jnp.zeros(1), h_loss)  # (K,)
+        if not self.unfreeze_first_head:
+            target_loss = jnp.append(jnp.zeros(1), target_loss)  # (K,)
+            h_loss = jnp.append(jnp.zeros(1), h_loss)  # (K,)
 
         td_loss = target_loss - jnp.sum(
             jax.lax.stop_gradient(target_distribution) * q_log_distribution[:, sample.action, :], axis=-1
@@ -211,7 +207,6 @@ class GiSC51Shared:
             jnp.where(lower == upper, next_probabilities_target, 0.0)
         )  # (K, n_bins)
         return target_distribution  # (K, n_bins)
-
 
     def OLD_loss(self, params: FrozenDict, sample: ReplayElement, importance_weight):
         q_outputs, h_outputs = self.networks.apply(params, sample.state)
