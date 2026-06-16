@@ -22,11 +22,13 @@ class C51RCShared:
         update_to_data: int,
         target_update_period: int,  # for logging only
         weight_decay: float,
+        omega: float,
         adam_eps: float = 1e-8,
         n_bins: int = 51,
         vmin: int = -10,
         vmax: int = 10,
     ):
+        self.omega = omega
         self.vmin, self.vmax = vmin, vmax
         self.n_actions = n_actions
         self.n_bins = n_bins
@@ -124,8 +126,9 @@ class C51RCShared:
         )  # (n_actions, n_bins)
         q_next_probabilities = jax.nn.softmax(q_next_logits, axis=-1)  # (n_actions, n_bins)
         next_q_values = q_next_probabilities @ self.support  # (n_actions,)
-        best_action_index = jnp.argmax(next_q_values)  # (1,)
-        next_probabilities_target = q_next_probabilities[best_action_index, :]  # (n_bins,)
+
+        weights = jax.nn.softmax(self.omega * next_q_values) # (n_actions, )
+        next_probabilities_target = weights @ q_next_probabilities # (n_bins,)
 
         non_aligned_target_atoms = (
             sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * self.support
