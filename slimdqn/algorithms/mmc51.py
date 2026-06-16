@@ -70,7 +70,7 @@ class MMC51:
             }
             self.cumulative_loss = 0
 
-    # @partial(jax.jit, static_argnames="self")
+    @partial(jax.jit, static_argnames="self")
     def learn_on_batch(
         self, params: FrozenDict, params_target: FrozenDict, optimizer_state, batch_samples, importance_weights
     ):
