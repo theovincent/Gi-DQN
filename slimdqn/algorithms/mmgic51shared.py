@@ -39,11 +39,13 @@ class GiC51Shared:
         update_to_data: int,
         target_update_period: int,
         weight_decay: float,
+        omega: float,
         adam_eps: float = 1e-8,
         n_bins: int = 51,
         vmin: int = -10,
         vmax: int = 10,
     ):
+        self.omega = omega
         self.vmin, self.vmax = vmin, vmax
         self.n_actions = n_actions
         self.n_bins = n_bins
@@ -191,22 +193,20 @@ class GiC51Shared:
 
     def compute_target(self, next_probabilities, sample: ReplayElement):
         next_q_values = next_probabilities @ self.support  # (K, n_actions)
-        best_action_index = jnp.argmax(next_q_values, axis=-1)  # (K,)
-        next_probabilities_target = next_probabilities[
-            jnp.arange(self.n_bellman_iterations), best_action_index, :
-        ]  # (K, n_bins)
+        weights = jax.nn.softmax(self.omega * next_q_values, axis=-1)  # (K, n_actions)
+        next_probabilities_target = jnp.einsum("ka,kan->kn", weights, next_probabilities)  # (K, n_bins)
 
         non_aligned_target_atoms = (
             sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * self.support
-        )  # (K, bins)
-        clipped_non_aligned_target_atoms = jnp.clip(non_aligned_target_atoms, self.vmin, self.vmax)  # (K, n_bins)
+        )  # (n_bins,)
+        clipped_non_aligned_target_atoms = jnp.clip(non_aligned_target_atoms, self.vmin, self.vmax)  # (n_bins,)
 
         fractional_coordinates = (clipped_non_aligned_target_atoms - self.support[0]) / (
             (self.vmax - self.vmin) / (self.n_bins - 1)
-        )  # (K, n_bins)
+        )  # (n_bins,)
         lower, upper = jnp.floor(fractional_coordinates).astype(jnp.int32), jnp.ceil(fractional_coordinates).astype(
             jnp.int32
-        )  # (K, n_bins), (K, n_bins)
+        )  # (n_bins,), (n_bins,)
 
         target_distribution = jnp.zeros((self.n_bellman_iterations, self.n_bins))  # (K, n_bins)
         target_distribution = target_distribution.at[:, lower].add(
