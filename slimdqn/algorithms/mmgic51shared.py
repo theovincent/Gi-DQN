@@ -25,7 +25,7 @@ def shift_params(params, n_actions):
     return optax.tree_utils.tree_set(params, q_heads=q_heads, h_heads=h_heads)
 
 
-class GiC51Shared:
+class MMGiC51Shared:
     def __init__(
         self,
         key: jax.random.PRNGKey,
