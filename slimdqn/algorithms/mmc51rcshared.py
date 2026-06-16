@@ -9,7 +9,7 @@ from slimdqn.algorithms.architectures.dqn import DQNNet
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 
-class C51RCShared:
+class MMC51RCShared:
     def __init__(
         self,
         key: jax.random.PRNGKey,

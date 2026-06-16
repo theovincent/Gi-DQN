@@ -21,7 +21,7 @@ def shift_params(params, n_actions):
     return optax.tree_utils.tree_set(params, q_heads=q_heads)
 
 
-class IC51Shared:
+class MMIC51Shared:
     def __init__(
         self,
         key: jax.random.PRNGKey,
@@ -34,11 +34,13 @@ class IC51Shared:
         update_horizon: int,
         update_to_data: int,
         target_update_period: int,
+        omega: float,
         adam_eps: float = 1e-8,
         n_bins: int = 51,
         vmin: int = -10,
         vmax: int = 10,
     ):
+        self.omega = omega
         self.vmin, self.vmax = vmin, vmax
         self.n_bins = n_bins
         self.support = jnp.linspace(self.vmin, self.vmax, self.n_bins)
@@ -145,10 +147,9 @@ class IC51Shared:
 
     def compute_target(self, next_probabilities, sample: ReplayElement):
         next_q_values = next_probabilities @ self.support  # (K, n_actions)
-        best_action_index = jnp.argmax(next_q_values, axis=-1)  # (K,)
-        next_probabilities_target = next_probabilities[
-            jnp.arange(self.n_bellman_iterations), best_action_index, :
-        ]  # (K, n_bins)
+
+        weights = jax.nn.softmax(self.omega * next_q_values, axis=-1)  # (K, n_actions)
+        next_probabilities_target = jnp.einsum("ka,kan->kn", weights, next_probabilities)  # (K, n_bins)
 
         non_aligned_target_atoms = (
             sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * self.support
