@@ -67,7 +67,7 @@ class SC51:
 
     def update_target_params(self, step: int):
         if step % self.target_update_period == 0:
-            self.target_params = self.params.copy()
+            self.params = shift_params(self.params, self.n_actions * self.n_bins)
 
             self.logs = {
                 "n_training_steps": step,
@@ -86,7 +86,7 @@ class SC51:
         return params, optimizer_state, per_sample_q_loss
 
     def loss_on_batch(self, params: FrozenDict, samples, importance_weights):
-        losses, q_losses = jax.vmap(self.loss, in_axes=(None, None, 0, 0))(params, samples, importance_weights)
+        losses, q_losses = jax.vmap(self.loss, in_axes=(None, 0, 0))(params, samples, importance_weights)
         return losses.mean(), q_losses
 
     def loss(self, params: FrozenDict, sample: ReplayElement, importance_weight):
