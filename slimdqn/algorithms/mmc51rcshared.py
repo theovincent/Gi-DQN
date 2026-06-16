@@ -127,8 +127,8 @@ class C51RCShared:
         q_next_probabilities = jax.nn.softmax(q_next_logits, axis=-1)  # (n_actions, n_bins)
         next_q_values = q_next_probabilities @ self.support  # (n_actions,)
 
-        weights = jax.nn.softmax(self.omega * next_q_values) # (n_actions, )
-        next_probabilities_target = weights @ q_next_probabilities # (n_bins,)
+        weights = jax.nn.softmax(self.omega * next_q_values)  # (n_actions, )
+        next_probabilities_target = weights @ q_next_probabilities  # (n_bins,)
 
         non_aligned_target_atoms = (
             sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * self.support
