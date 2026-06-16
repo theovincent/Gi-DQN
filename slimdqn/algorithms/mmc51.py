@@ -100,8 +100,6 @@ class MMC51:
 
         return cross_entropy * importance_weight, cross_entropy
 
-
-
     def compute_target(self, params: FrozenDict, sample: ReplayElement):
         next_logits = self.network.apply(params, sample.next_state).reshape(
             self.n_actions, self.n_bins

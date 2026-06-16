@@ -330,3 +330,10 @@ def add_isc51rcshared_arguments(parser: argparse.ArgumentParser):
 def add_mmc51_arguments(parser: argparse.ArgumentParser):
     add_omega(parser)
     add_nbins(parser)
+
+
+@output_added_arguments
+def add_mmc51rcshared_arguments(parser: argparse.ArgumentParser):
+    add_omega(parser)
+    add_nbins(parser)
+    add_weight_decay(parser)
