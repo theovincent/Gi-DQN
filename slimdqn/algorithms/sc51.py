@@ -15,7 +15,7 @@ def shift_params(params, n_actions):
     return optax.tree_utils.tree_set(params, q_heads=q_heads)
 
 
-class SDQN:
+class SC51:
     def __init__(
         self,
         key: jax.random.PRNGKey,
@@ -28,12 +28,20 @@ class SDQN:
         update_to_data: int,
         target_update_period: int,
         adam_eps: float = 1e-8,
+        n_bins: int = 51,
+        vmin: int = -10,
+        vmax: int = 10,
     ):
-        self.network = DQNNet(features, n_actions, n_heads=2, n_h_heads=0)
+        self.vmin, self.vmax = vmin, vmax
+        self.n_actions = n_actions
+        self.n_bins = n_bins
+        self.support = jnp.linspace(self.vmin, self.vmax, self.n_bins)
+        self.network = DQNNet(features, self.n_actions * self.n_bins, n_heads=2, n_h_heads=0)
         self.params = self.network.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
         self.optimizer_state = self.optimizer.init(self.params)
+        self.target_params = self.params.copy()
 
         self.n_actions = n_actions
         self.gamma = gamma
@@ -59,7 +67,7 @@ class SDQN:
 
     def update_target_params(self, step: int):
         if step % self.target_update_period == 0:
-            self.params = shift_params(self.params, self.n_actions)
+            self.target_params = self.params.copy()
 
             self.logs = {
                 "n_training_steps": step,
@@ -78,24 +86,62 @@ class SDQN:
         return params, optimizer_state, per_sample_q_loss
 
     def loss_on_batch(self, params: FrozenDict, samples, importance_weights):
-        q_losses, q_losses = jax.vmap(self.loss, in_axes=(None, 0, 0))(params, samples, importance_weights)
-        return q_losses.mean(), q_losses
+        losses, q_losses = jax.vmap(self.loss, in_axes=(None, None, 0, 0))(params, samples, importance_weights)
+        return losses.mean(), q_losses
 
     def loss(self, params: FrozenDict, sample: ReplayElement, importance_weight):
-        target = self.compute_target(params, sample)
-        q_value = self.network.apply(params, sample.state)[1, sample.action]
-        return importance_weight * jnp.square(q_value - jax.lax.stop_gradient(target)), jnp.square(
-            q_value - jax.lax.stop_gradient(target)
-        )
+        logits = self.network.apply(params, sample.state)[1].reshape(self.n_actions, self.n_bins)  # (n_actions, n_bins)
+        log_distribution = jax.nn.log_softmax(
+            logits, axis=-1
+        )  # (n_actions, n_bins) log softmax for numerical stability
+
+        target_distribution = self.compute_target(params, sample)  # (n_bins,)
+
+        cross_entropy = -jnp.sum(
+            jax.lax.stop_gradient(target_distribution) * log_distribution[sample.action, :]
+        )  # (1,)
+
+        return cross_entropy * importance_weight, cross_entropy
 
     def compute_target(self, params: FrozenDict, sample: ReplayElement):
-        return sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * jnp.max(
-            self.network.apply(params, sample.next_state)[0]
-        )
+        next_logits = self.network.apply(params, sample.next_state)[0].reshape(
+            self.n_actions, self.n_bins
+        )  # (n_actions, n_bins)
+        next_probabilities = jax.nn.softmax(next_logits, axis=-1)  # (n_actions, n_bins)
+        next_q_values = next_probabilities @ self.support  # (n_actions,)
+        best_action_index = jnp.argmax(next_q_values)  # (1,)
+        next_probabilities_target = next_probabilities[best_action_index, :]  # (n_bins,)
+
+        non_aligned_target_atoms = (
+            sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * self.support
+        )  # (n_bins,)
+        clipped_non_aligned_target_atoms = jnp.clip(non_aligned_target_atoms, self.vmin, self.vmax)  # (n_bins,)
+
+        fractional_coordinates = (clipped_non_aligned_target_atoms - self.support[0]) / (
+            (self.vmax - self.vmin) / (self.n_bins - 1)
+        )  # (n_bins,)
+        lower, upper = jnp.floor(fractional_coordinates).astype(jnp.int32), jnp.ceil(fractional_coordinates).astype(
+            jnp.int32
+        )  # (n_bins,), (n_bins,)
+
+        target_distribution = jnp.zeros(self.n_bins)  # (n_bins,)
+        target_distribution = target_distribution.at[lower].add(
+            next_probabilities_target * (upper - fractional_coordinates)
+        )  # (n_bins,)
+        target_distribution = target_distribution.at[upper].add(
+            next_probabilities_target * (fractional_coordinates - lower)
+        )  # (n_bins,)
+        target_distribution = target_distribution.at[lower].add(
+            jnp.where(lower == upper, next_probabilities_target, 0.0)
+        )  # (n_bins,)
+        return target_distribution  # (n_bins,)
 
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray):
-        return jnp.argmax(self.network.apply(params, state)[1])
+        logits = self.network.apply(params, state)[1].reshape(self.n_actions, self.n_bins)
+        probabilities = jax.nn.softmax(logits, axis=-1)
+        q_values = probabilities @ self.support
+        return jnp.argmax(q_values)
 
     def get_model(self):
         return {"params": self.params}
