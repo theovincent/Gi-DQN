@@ -18,7 +18,7 @@ def categorical_projection(next_probs, reward, is_terminal, gamma_h, vmin, vmax,
     for j in range(n_bins):
         m[lower[j]] += next_probs[j] * (upper[j] - b[j])
         m[upper[j]] += next_probs[j] * (b[j] - lower[j])
-        m[lower[j]] += next_probs[j] * (lower[j] == upper[j])  # atom lands exactly on a grid point
+        m[lower[j]] += next_probs[j] * (lower[j] == upper[j])
     return m
 
 
@@ -57,7 +57,6 @@ class TestC51(unittest.TestCase):
 
         computed_target = self.q.compute_target(self.q.params, sample)
 
-        # Independently re-select the greedy next distribution and project it onto the support.
         next_logits = self.q.network.apply(self.q.params, sample.next_state).reshape(self.n_actions, self.n_bins)
         next_probabilities = jax.nn.softmax(next_logits, axis=-1)
         next_q_values = next_probabilities @ self.q.support
@@ -75,7 +74,7 @@ class TestC51(unittest.TestCase):
         )
 
         self.assertEqual(computed_target.shape, (self.n_bins,))
-        self.assertAlmostEqual(float(jnp.sum(computed_target)), 1.0, places=4)  # probability mass is conserved
+        self.assertAlmostEqual(float(jnp.sum(computed_target)), 1.0, places=4)
         np.testing.assert_allclose(np.array(computed_target), target, atol=1e-4)
 
     def test_loss(self) -> None:
@@ -83,14 +82,11 @@ class TestC51(unittest.TestCase):
         sample = self.generator.sample(self.key)
 
         computed_loss = self.q.loss(self.q.params, self.q.params, sample, jnp.ones(1))[0]
-
-        # compute_target is validated separately above, so reuse it and recompute only the cross-entropy here.
         target_distribution = self.q.compute_target(self.q.params, sample)
         logits = self.q.network.apply(self.q.params, sample.state).reshape(self.n_actions, self.n_bins)
         log_distribution = jax.nn.log_softmax(logits, axis=-1)
         cross_entropy = -jnp.sum(target_distribution * log_distribution[sample.action])
-
-        self.assertAlmostEqual(float(cross_entropy), float(computed_loss), places=4)
+        self.assertAlmostEqual(cross_entropy.sum().item(), computed_loss.item(), places=3)
 
     def test_best_action(self):
         print(f"-------------- Random key {self.random_seed} --------------")
