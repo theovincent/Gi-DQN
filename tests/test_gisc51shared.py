@@ -3,7 +3,7 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 
-from slimdqn.algorithms.isc51shared import ISC51Shared, shift_params
+from slimdqn.algorithms.gisc51shared import GiSC51Shared, shift_params
 from tests.utils import Generator
 
 
@@ -22,7 +22,7 @@ def categorical_projection(next_probs, reward, is_terminal, gamma_h, vmin, vmax,
     return m
 
 
-class TestISC51Shared(unittest.TestCase):
+class TestGiSC51Shared(unittest.TestCase):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.random_seed = np.random.randint(1000)
@@ -31,7 +31,7 @@ class TestISC51Shared(unittest.TestCase):
         key_actions, key_feature_1, key_feature_2, key_feature_3, key_feature_4 = jax.random.split(self.key, 5)
         self.observation_dim = (84, 84, 4)
         self.n_actions = int(jax.random.randint(key_actions, (), minval=2, maxval=10))
-        self.q = ISC51Shared(
+        self.q = GiSC51Shared(
             self.key,
             self.observation_dim,
             self.n_actions,
@@ -47,6 +47,8 @@ class TestISC51Shared(unittest.TestCase):
             1,
             1,
             1,
+            1,
+            True,
         )
         self.n_bins = self.q.n_bins
 
@@ -57,11 +59,9 @@ class TestISC51Shared(unittest.TestCase):
         sample = self.generator.sample(self.key)
 
         next_distribution = jax.nn.softmax(
-            self.q.online_networks.apply(self.q.params, sample.next_state).reshape(-1, self.n_actions, self.n_bins)[
-                :-1
-            ],
+            self.q.networks.apply(self.q.params, sample.next_state)[0].reshape(-1, self.n_actions, self.n_bins)[:-1],
             axis=-1,
-        )
+        )  # (K, n_actions, n_bins)
         computed_target = self.q.compute_target(next_distribution, sample)  # (K, n_bins)
 
         next_q_values = np.array(next_distribution @ self.q.support)  # (K, n_actions)
@@ -91,20 +91,34 @@ class TestISC51Shared(unittest.TestCase):
         print(f"-------------- Random key {self.random_seed} --------------")
         sample = self.generator.sample(self.key)
 
-        computed_loss = self.q.loss(self.q.params, sample, jnp.ones(1))[0].sum()
+        computed_loss, computed_cross_entropy, computed_suboptimality = self.q.loss(self.q.params, sample, jnp.ones(1))
+        computed_loss = computed_loss.sum()
+
         next_distribution = jax.nn.softmax(
-            self.q.online_networks.apply(self.q.params, sample.next_state).reshape(-1, self.n_actions, self.n_bins)[
-                :-1
-            ],
+            self.q.networks.apply(self.q.params, sample.next_state)[0].reshape(-1, self.n_actions, self.n_bins),
             axis=-1,
         )
-        target_distribution = self.q.compute_target(next_distribution, sample)  # (K, n_bins)
+        target = self.q.compute_target(next_distribution, sample)  # (K, n_bins)
 
-        logits = self.q.online_networks.apply(self.q.params, sample.state).reshape(-1, self.n_actions, self.n_bins)[1:]
-        log_distribution = jax.nn.log_softmax(logits, axis=-1)
-        cross_entropy = -jnp.sum(target_distribution * log_distribution[:, sample.action, :], axis=-1)  # (K,)
+        q_logits, h_logits = self.q.networks.apply(self.q.params, sample.state)
+        q_log_distribution = jax.nn.log_softmax(q_logits.reshape(-1, self.n_actions, self.n_bins), axis=-1)[
+            :, sample.action, :
+        ]
+        h_logits = h_logits.reshape(-1, self.n_actions, self.n_bins)[:, sample.action, :]
 
-        self.assertAlmostEqual(float(cross_entropy.sum()), float(computed_loss), places=4)
+        target_loss = jnp.append(jnp.zeros(1), jnp.sum(target[1:] * h_logits, axis=-1))
+        h_loss = jnp.append(
+            jnp.zeros(1),
+            jnp.sum(target * h_logits, axis=-1)
+            - jax.scipy.special.logsumexp(h_logits + q_log_distribution[1:], axis=-1),
+        )
+        td_loss = target_loss - jnp.sum(target * q_log_distribution, axis=-1)  # (K,)
+        cross_entropy = -jnp.sum(target * q_log_distribution, axis=-1)  # (K,)
+        suboptimality = cross_entropy + jnp.sum(jax.scipy.special.xlogy(target, target), axis=-1) - h_loss  # (K,)
+
+        self.assertAlmostEqual(float((td_loss - h_loss).sum()), float(computed_loss), places=4)
+        np.testing.assert_allclose(np.array(cross_entropy), np.array(computed_cross_entropy), atol=1e-4)
+        np.testing.assert_allclose(np.array(suboptimality[1:]), np.array(computed_suboptimality), atol=1e-4)
 
     def test_best_action(self):
         print(f"-------------- Random key {self.random_seed} --------------")
@@ -112,7 +126,7 @@ class TestISC51Shared(unittest.TestCase):
 
         computed_best_action = self.q.best_action(self.q.params, state)
 
-        logits = self.q.online_networks.apply(self.q.params, state).reshape(-1, self.n_actions, self.n_bins)[1:]
+        logits = self.q.networks.apply(self.q.params, state)[0].reshape(-1, self.n_actions, self.n_bins)[1:]
         probabilities = jax.nn.softmax(logits, axis=-1)
         q_values = (probabilities @ self.q.support).mean(axis=0)
         best_action = jnp.argmax(q_values)
@@ -124,8 +138,9 @@ class TestISC51Shared(unittest.TestCase):
         print(f"-------------- Random key {self.random_seed} --------------")
         state = self.generator.state(self.key)
 
-        q_values = self.q.online_networks.apply(self.q.params, state)[1:]
+        q_logits, h_logits = self.q.networks.apply(self.q.params, state)
         shifted_params = shift_params(self.q.params, self.n_actions * self.n_bins)
-        shifted_q_values = self.q.online_networks.apply(shifted_params, state)[1:]
+        shifted_q_logits, shifted_h_logits = self.q.networks.apply(shifted_params, state)
 
-        self.assertEqual(np.linalg.norm(shifted_q_values[:-1] - q_values[1:]), 0)
+        self.assertEqual(np.linalg.norm(shifted_q_logits[:-1] - q_logits[1:]), 0)
+        self.assertEqual(np.linalg.norm(shifted_h_logits[:-1] - h_logits[1:]), 0)

@@ -10,12 +10,6 @@ from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 
 @partial(jax.jit, static_argnames="n_actions")
-def set_target_params(params, n_actions):
-    q_heads = jax.tree.map(lambda p: p[..., :n_actions], params["params"]["q_heads"])
-    return optax.tree_utils.tree_set(params, q_heads=q_heads)
-
-
-@partial(jax.jit, static_argnames="n_actions")
 def shift_params(params, n_actions):
     q_heads = jax.tree.map(lambda p: p.at[..., :-n_actions].set(p[..., n_actions:]), params["params"]["q_heads"])
     return optax.tree_utils.tree_set(params, q_heads=q_heads)
@@ -49,7 +43,6 @@ class ISC51Shared:
         # initialize 1 network with K heads
         self.params = self.online_networks.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
         # initialize the target network
-        self.target_params = set_target_params(self.params, self.n_actions * self.n_bins)
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
         self.optimizer_state = self.optimizer.init(self.params)
@@ -68,7 +61,7 @@ class ISC51Shared:
             batch_samples, (sample_keys, importance_weights) = replay_buffer.sample()
 
             self.params, self.optimizer_state, per_sample_q_losses = self.learn_on_batch(
-                self.params, self.target_params, self.optimizer_state, batch_samples, importance_weights
+                self.params, self.optimizer_state, batch_samples, importance_weights
             )
 
             replay_buffer.update(sample_keys, per_sample_q_losses.mean(axis=1))
@@ -77,7 +70,6 @@ class ISC51Shared:
 
     def update_target_params(self, step: int):
         if step % self.target_update_period == 0:
-            self.target_params = set_target_params(self.params, self.n_actions * self.n_bins)
             self.params = shift_params(self.params, self.n_actions * self.n_bins)
 
             self.logs = {
@@ -92,21 +84,17 @@ class ISC51Shared:
             self.cumulative_losses = np.zeros(self.n_bellman_iterations)
 
     @partial(jax.jit, static_argnames="self")
-    def learn_on_batch(
-        self, params: FrozenDict, target_params: FrozenDict, optimizer_state, batch_samples, importance_weights
-    ):
+    def learn_on_batch(self, params: FrozenDict, optimizer_state, batch_samples, importance_weights):
         grad_loss, (per_sample_q_losses) = jax.grad(self.loss_on_batch, has_aux=True)(
-            params, target_params, batch_samples, importance_weights
+            params, batch_samples, importance_weights
         )
         updates, optimizer_state = self.optimizer.update(grad_loss, optimizer_state, params)
         params = optax.apply_updates(params, updates)
 
         return params, optimizer_state, per_sample_q_losses
 
-    def loss_on_batch(self, params: FrozenDict, target_params: FrozenDict, samples, importance_weights):
-        total_losses, q_losses = jax.vmap(self.loss, in_axes=(None, None, 0, 0))(
-            params, target_params, samples, importance_weights
-        )
+    def loss_on_batch(self, params: FrozenDict, samples, importance_weights):
+        total_losses, q_losses = jax.vmap(self.loss, in_axes=(None, 0, 0))(params, samples, importance_weights)
 
         return total_losses.mean(axis=0).sum(), q_losses
 

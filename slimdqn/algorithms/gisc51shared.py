@@ -128,14 +128,14 @@ class GiSC51Shared:
         return total_losses.mean(axis=0).sum(), (q_losses, h_losses)
 
     def loss(self, params: FrozenDict, sample: ReplayElement, importance_weight):
-        q_logits, h_logits = self.online_networks.apply(params, sample.state)
+        q_logits, h_logits = self.networks.apply(params, sample.state)
         q_logits, h_logits = q_logits.reshape(-1, self.n_actions, self.n_bins)[1:], h_logits.reshape(
             -1, self.n_actions, self.n_bins
         )  # (K, n_actions, n_bins), (K-1 if not self.unfreeze_first_head else K, n_actions, n_bins)
         q_log_distribution = jax.nn.log_softmax(q_logits, axis=-1)  # (K, n_actions, n_bins)
         h_logits = h_logits[:, sample.action, :]  # (K-1 if not self.unfreeze_first_head else K, n_bins)
 
-        next_q_logits_targets = self.online_networks.apply(params, sample.next_state)[0].reshape(
+        next_q_logits_targets = self.networks.apply(params, sample.next_state)[0].reshape(
             -1, self.n_actions, self.n_bins
         )[
             :-1
@@ -208,38 +208,9 @@ class GiSC51Shared:
         )  # (K, n_bins)
         return target_distribution  # (K, n_bins)
 
-    def OLD_loss(self, params: FrozenDict, sample: ReplayElement, importance_weight):
-        q_outputs, h_outputs = self.networks.apply(params, sample.state)
-        q_values, h_values = q_outputs[1:, sample.action], h_outputs[:, sample.action]
-
-        next_q_values = self.networks.apply(params, sample.next_state)[0][:-1]
-        targets = self.compute_target(next_q_values, sample)
-
-        td_errors = targets - q_values
-
-        h_loss = h_values * jax.lax.stop_gradient(h_values - td_errors[1 - int(self.unfreeze_first_head) :])
-        target_loss = targets[1 - int(self.unfreeze_first_head) :] * jax.lax.stop_gradient(h_values)
-
-        if not self.unfreeze_first_head:
-            h_loss = jnp.append(jnp.zeros(1), h_loss)
-            target_loss = jnp.append(jnp.zeros(1), target_loss)
-
-        td_loss = target_loss - q_values * jax.lax.stop_gradient(td_errors)
-
-        return (
-            importance_weight * (td_loss + h_loss),
-            jnp.square(td_errors),
-            jnp.square(h_values - td_errors[1 - int(self.unfreeze_first_head) :]),
-        )
-
-    def OLD_compute_target(self, next_q_values, sample: ReplayElement):
-        return sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * jnp.max(
-            next_q_values, axis=-1
-        )
-
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray):
-        logits = self.online_networks.apply(params, state)[0].reshape(-1, self.n_actions, self.n_bins)
+        logits = self.networks.apply(params, state)[0].reshape(-1, self.n_actions, self.n_bins)
         probabilities = jax.nn.softmax(logits, axis=-1)
         q_values = (probabilities @ self.support).mean(axis=0)
         return jnp.argmax(q_values)

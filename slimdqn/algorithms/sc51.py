@@ -41,7 +41,6 @@ class SC51:
 
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
         self.optimizer_state = self.optimizer.init(self.params)
-        self.target_params = self.params.copy()
 
         self.n_actions = n_actions
         self.gamma = gamma
