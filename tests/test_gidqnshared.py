@@ -27,10 +27,6 @@ class TestGiDQN(unittest.TestCase):
                 jax.random.randint(key_feature_3, (), minval=1, maxval=10),
                 jax.random.randint(key_feature_4, (), minval=1, maxval=10),
             ],
-            "cnn",
-            True,
-            False,
-            False,
             0.001,
             0.94,
             1,
@@ -78,13 +74,13 @@ class TestGiDQN(unittest.TestCase):
         state = self.generator.state(self.key)
 
         first_q_values = self.q.online_networks.apply(self.q.params, state)[0][0]
-        target_params = set_target_params(self.q.params, self.q.online_networks.linear_heads, self.n_actions)
+        target_params = set_target_params(self.q.params, self.n_actions)
         target_q_values = self.q.root_network.apply(target_params, state)
 
         self.assertEqual(np.linalg.norm(first_q_values - target_q_values), 0)
 
         q_values, h_values = self.q.online_networks.apply(self.q.params, state)
-        shifted_params = shift_params(self.q.params, self.q.online_networks.linear_heads, self.n_actions)
+        shifted_params = shift_params(self.q.params, self.n_actions)
         shifted_q_values, shifted_h_values = self.q.online_networks.apply(shifted_params, state)
 
         self.assertEqual(np.linalg.norm(shifted_q_values[:-1] - q_values[1:]), 0)
