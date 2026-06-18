@@ -107,13 +107,20 @@ class MMC51:
         next_probabilities = jax.nn.softmax(next_logits, axis=-1)  # (n_actions, n_bins)
         next_q_values = next_probabilities @ self.support  # (n_actions,)
 
-        # Mellow Max
-        weights = jax.nn.softmax(self.omega * next_q_values)  # (n_actions,)
-        next_probabilities_target = weights @ next_probabilities  # (n_bins,)
+        # Mellow Max = boltzmann_mean + 1/omega ( H(boltzmann_policy) - log(n))
+        boltzmann_policy = jax.nn.softmax(self.omega * next_q_values)  # (n_actions,); weights
+        next_probabilities_target = boltzmann_policy @ next_probabilities  # (n_bins,); convex mixture of distributions
 
-        non_aligned_target_atoms = (
-            sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * self.support
-        )  # (n_bins,)
+        # slide the mixture so its mean is mellowmax, not the Boltzmann mean
+        boltzmann_mean = boltzmann_policy @ next_q_values  # (1,); compute mean of boltzmann policy
+        mellowmax = (1.0 / self.omega) * (
+            jax.scipy.special.logsumexp(self.omega * next_q_values) - jnp.log(self.n_actions)
+        )
+        shift = mellowmax - boltzmann_mean  #  = (1/w)(H(pi)-log n) <= 0
+
+        non_aligned_target_atoms = sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * (
+            self.support + shift
+        )  # (n_bins,); Shift
         clipped_non_aligned_target_atoms = jnp.clip(non_aligned_target_atoms, self.vmin, self.vmax)  # (n_bins,)
 
         fractional_coordinates = (clipped_non_aligned_target_atoms - self.support[0]) / (
