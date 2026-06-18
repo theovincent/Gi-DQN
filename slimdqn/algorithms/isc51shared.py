@@ -128,15 +128,15 @@ class ISC51Shared:
 
         non_aligned_target_atoms = (
             sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * self.support
-        )  # (K, bins)
+        )  # (bins,)
         clipped_non_aligned_target_atoms = jnp.clip(non_aligned_target_atoms, self.vmin, self.vmax)  # (K, n_bins)
 
         fractional_coordinates = (clipped_non_aligned_target_atoms - self.support[0]) / (
             (self.vmax - self.vmin) / (self.n_bins - 1)
-        )  # (K, n_bins)
+        )  # (n_bins,)
         lower, upper = jnp.floor(fractional_coordinates).astype(jnp.int32), jnp.ceil(fractional_coordinates).astype(
             jnp.int32
-        )  # (K, n_bins), (K, n_bins)
+        )  # (n_bins,), (n_bins,)
 
         target_distribution = jnp.zeros((self.n_bellman_iterations, self.n_bins))  # (K, n_bins)
         target_distribution = target_distribution.at[:, lower].add(

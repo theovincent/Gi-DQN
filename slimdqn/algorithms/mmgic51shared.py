@@ -91,7 +91,7 @@ class MMGiC51Shared:
 
             replay_buffer.update(
                 sample_keys, per_sample_q_losses.mean(axis=1) + jnp.maximum(per_sample_h_losses.mean(axis=1), 0.0)
-            )  # jnp.max because Donsker-Varadhan term can be negative in early training
+            )
 
             self.cumulative_q_losses += per_sample_q_losses.mean(axis=0)
             self.cumulative_h_losses += per_sample_h_losses.mean(axis=0)
