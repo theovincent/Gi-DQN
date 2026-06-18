@@ -326,7 +326,7 @@ def add_sc51_arguments(parser: argparse.ArgumentParser):
 
 
 @output_added_arguments
-def add_isc51rcshared_arguments(parser: argparse.ArgumentParser):
+def add_isc51shared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_nbins(parser)
 
