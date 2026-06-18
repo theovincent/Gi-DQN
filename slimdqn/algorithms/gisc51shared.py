@@ -174,7 +174,7 @@ class GiSC51Shared:
         return (
             importance_weight * (td_loss - h_loss),
             cross_entropy,
-            suboptimality[1:],
+            suboptimality[1 - int(self.unfreeze_first_head) :],
         )
 
     def compute_target(self, next_probabilities, sample: ReplayElement):
