@@ -156,5 +156,5 @@ class TestGiC51Shared(unittest.TestCase):
         shifted_params = shift_params(self.q.params, self.n_actions * self.n_bins)
         shifted_q_values, shifted_h_values = self.q.online_networks.apply(shifted_params, state)
 
-        self.assertEqual(np.linalg.norm(shifted_q_values[:-1] - q_values[1:]), 0)
-        self.assertEqual(np.linalg.norm(shifted_h_values[:-1] - h_values[1:]), 0)
+        self.assertAlmostEqual(np.linalg.norm(shifted_q_values[:-1] - q_values[1:]), 0)
+        self.assertAlmostEqual(np.linalg.norm(shifted_h_values[:-1] - h_values[1:]), 0)

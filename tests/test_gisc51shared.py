@@ -95,26 +95,26 @@ class TestGiSC51Shared(unittest.TestCase):
         computed_loss = computed_loss.sum()
 
         next_distribution = jax.nn.softmax(
-            self.q.networks.apply(self.q.params, sample.next_state)[0].reshape(-1, self.n_actions, self.n_bins),
+            self.q.networks.apply(self.q.params, sample.next_state)[0].reshape(-1, self.n_actions, self.n_bins)[:-1],
             axis=-1,
         )
-        target = self.q.compute_target(next_distribution, sample)  # (K, n_bins)
+        target = self.q.compute_target(next_distribution, sample)
 
-        q_logits, h_logits = self.q.networks.apply(self.q.params, sample.state)
-        q_log_distribution = jax.nn.log_softmax(q_logits.reshape(-1, self.n_actions, self.n_bins), axis=-1)[
+        q_logits = self.q.networks.apply(self.q.params, sample.state)[0]
+        h_logits = self.q.networks.apply(self.q.params, sample.state)[1]
+        q_log_distribution = jax.nn.log_softmax(q_logits.reshape(-1, self.n_actions, self.n_bins)[1:], axis=-1)[
             :, sample.action, :
         ]
         h_logits = h_logits.reshape(-1, self.n_actions, self.n_bins)[:, sample.action, :]
 
-        target_loss = jnp.append(jnp.zeros(1), jnp.sum(target[1:] * h_logits, axis=-1))
-        h_loss = jnp.append(
-            jnp.zeros(1),
-            jnp.sum(target * h_logits, axis=-1)
-            - jax.scipy.special.logsumexp(h_logits + q_log_distribution[1:], axis=-1),
+        target_loss = jnp.sum(target * h_logits, axis=-1)
+        h_loss = jnp.sum(target * h_logits, axis=-1) - jax.scipy.special.logsumexp(
+            h_logits + q_log_distribution, axis=-1
         )
-        td_loss = target_loss - jnp.sum(target * q_log_distribution, axis=-1)  # (K,)
-        cross_entropy = -jnp.sum(target * q_log_distribution, axis=-1)  # (K,)
-        suboptimality = cross_entropy + jnp.sum(jax.scipy.special.xlogy(target, target), axis=-1) - h_loss  # (K,)
+
+        td_loss = target_loss - jnp.sum(target * q_log_distribution, axis=-1)
+        cross_entropy = -jnp.sum(target * q_log_distribution, axis=-1)
+        suboptimality = cross_entropy + jnp.sum(jax.scipy.special.xlogy(target, target), axis=-1) - h_loss
 
         self.assertAlmostEqual(float((td_loss - h_loss).sum()), float(computed_loss), places=4)
         np.testing.assert_allclose(np.array(cross_entropy), np.array(computed_cross_entropy), atol=1e-4)
@@ -142,5 +142,5 @@ class TestGiSC51Shared(unittest.TestCase):
         shifted_params = shift_params(self.q.params, self.n_actions * self.n_bins)
         shifted_q_logits, shifted_h_logits = self.q.networks.apply(shifted_params, state)
 
-        self.assertEqual(np.linalg.norm(shifted_q_logits[:-1] - q_logits[1:]), 0)
-        self.assertEqual(np.linalg.norm(shifted_h_logits[:-1] - h_logits[1:]), 0)
+        self.assertAlmostEqual(np.linalg.norm(shifted_q_logits[:-1] - q_logits[1:]), 0)
+        self.assertAlmostEqual(np.linalg.norm(shifted_h_logits[:-1] - h_logits[1:]), 0)

@@ -210,7 +210,7 @@ class GiSC51Shared:
 
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray):
-        logits = self.networks.apply(params, state)[0].reshape(-1, self.n_actions, self.n_bins)
+        logits = self.networks.apply(params, state)[0].reshape(-1, self.n_actions, self.n_bins)[1:]
         probabilities = jax.nn.softmax(logits, axis=-1)
         q_values = (probabilities @ self.support).mean(axis=0)
         return jnp.argmax(q_values)
