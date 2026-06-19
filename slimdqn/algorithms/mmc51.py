@@ -116,7 +116,7 @@ class MMC51:
         mellowmax = (1.0 / self.omega) * (
             jax.scipy.special.logsumexp(self.omega * next_q_values) - jnp.log(self.n_actions)
         )
-        shift = mellowmax - boltzmann_mean  #  = (1/w)(H(pi)-log n) <= 0
+        shift = mellowmax - boltzmann_mean  #  = (1/w)(H(pi)-log n)
 
         non_aligned_target_atoms = sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * (
             self.support + shift

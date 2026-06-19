@@ -148,29 +148,43 @@ class MMIC51Shared:
     def compute_target(self, next_probabilities, sample: ReplayElement):
         next_q_values = next_probabilities @ self.support  # (K, n_actions)
 
-        weights = jax.nn.softmax(self.omega * next_q_values, axis=-1)  # (K, n_actions)
-        next_probabilities_target = jnp.einsum("ka,kan->kn", weights, next_probabilities)  # (K, n_bins)
+        # Mellow Max = boltzmann_mean + 1/omega ( H(boltzmann_policy) - log(n))
+        boltzmann_policy = jax.nn.softmax(self.omega * next_q_values, axis=-1)  # (K, n_actions); weights
+        next_probabilities_target = jnp.einsum(
+            "ka,kan->kn", boltzmann_policy, next_probabilities
+        )  # (K, n_bins); convex mixture of distributions
 
-        non_aligned_target_atoms = (
-            sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * self.support
-        )  # (n_bins,)
-        clipped_non_aligned_target_atoms = jnp.clip(non_aligned_target_atoms, self.vmin, self.vmax)  # (n_bins,)
+        # slide the mixture so its mean is mellowmax, not the Boltzmann mean
+        boltzmann_mean = jnp.einsum(
+            "ka,ka->k", boltzmann_policy, next_q_values
+        )  # (K,); compute mean of boltzmann policy
+        mellowmax = (1.0 / self.omega) * (
+            jax.scipy.special.logsumexp(self.omega * next_q_values, axis=-1) - jnp.log(self.n_actions)
+        )  # (K,)
+        shift = mellowmax - boltzmann_mean  # = (1/w)(H(pi)-log n),
+
+        non_aligned_target_atoms = sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * (
+            self.support[None, :] + shift[:, None]
+        )  # (K, n_bins,); Shift: atoms[k, j] = support[j] + shift[k]
+
+        clipped_non_aligned_target_atoms = jnp.clip(non_aligned_target_atoms, self.vmin, self.vmax)  # (K,n_bins)
 
         fractional_coordinates = (clipped_non_aligned_target_atoms - self.support[0]) / (
             (self.vmax - self.vmin) / (self.n_bins - 1)
-        )  # (n_bins,)
+        )  # (K,n_bins)
         lower, upper = jnp.floor(fractional_coordinates).astype(jnp.int32), jnp.ceil(fractional_coordinates).astype(
             jnp.int32
-        )  # (n_bins,), (n_bins,)
+        )  # (K,n_bins), (K,n_bins,)
 
+        rows = jnp.arange(self.n_bellman_iterations)[:, None]  # (K,1) -> broadcasts to (K, n_bins)
         target_distribution = jnp.zeros((self.n_bellman_iterations, self.n_bins))  # (K, n_bins)
-        target_distribution = target_distribution.at[:, lower].add(
+        target_distribution = target_distribution.at[rows, lower].add(
             next_probabilities_target * (upper - fractional_coordinates)
         )  # (K, n_bins)
-        target_distribution = target_distribution.at[:, upper].add(
+        target_distribution = target_distribution.at[rows, upper].add(
             next_probabilities_target * (fractional_coordinates - lower)
         )  # (K, n_bins)
-        target_distribution = target_distribution.at[:, lower].add(
+        target_distribution = target_distribution.at[rows, lower].add(
             jnp.where(lower == upper, next_probabilities_target, 0.0)
         )  # (K, n_bins)
         return target_distribution  # (K, n_bins)
