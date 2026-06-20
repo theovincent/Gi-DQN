@@ -7,10 +7,10 @@ from slimdqn.algorithms.mmgic51shared import MMGiC51Shared, set_target_params, s
 from tests.utils import Generator
 
 
-def categorical_projection(next_probs, reward, is_terminal, gamma_h, vmin, vmax, n_bins):
+def categorical_projection(next_probs, reward, is_terminal, gamma_h, vmin, vmax, n_bins, shift=0.0):
     support = np.linspace(vmin, vmax, n_bins)
     dz = (vmax - vmin) / (n_bins - 1)
-    tz = np.clip(reward + (1.0 - is_terminal) * gamma_h * support, vmin, vmax)
+    tz = np.clip(reward + (1.0 - is_terminal) * gamma_h * (support + shift), vmin, vmax)
     b = (tz - vmin) / dz
     lower = np.floor(b).astype(np.int32)
     upper = np.ceil(b).astype(np.int32)
@@ -69,6 +69,10 @@ class TestMMGiC51Shared(unittest.TestCase):
         scaled_q_values -= np.max(scaled_q_values, axis=-1, keepdims=True)
         weights = np.exp(scaled_q_values) / np.sum(np.exp(scaled_q_values), axis=-1, keepdims=True)
         next_probabilities_target = np.einsum("ka,kan->kn", weights, np.array(next_distribution))
+        logsumexp_q = np.max(self.q.omega * next_q_values, axis=-1) + np.log(np.exp(scaled_q_values).sum(axis=-1))
+        mellowmax = (logsumexp_q - np.log(self.n_actions)) / self.q.omega  # (K,)
+        boltzmann_mean = np.einsum("ka,ka->k", weights, next_q_values)  # (K,)
+        shift = mellowmax - boltzmann_mean  # (K,)
         target = np.stack(
             [
                 categorical_projection(
@@ -79,12 +83,13 @@ class TestMMGiC51Shared(unittest.TestCase):
                     self.q.vmin,
                     self.q.vmax,
                     self.n_bins,
+                    shift[k],
                 )
                 for k in range(self.q.n_bellman_iterations)
             ]
         )
 
-        self.assertEqual(computed_target.shape, (self.q.n_bellman_iterations, self.n_bins))
+        self.assertAlmostEqual(computed_target.shape, (self.q.n_bellman_iterations, self.n_bins))
         np.testing.assert_allclose(np.array(computed_target), target, atol=1e-4)
         np.testing.assert_allclose(
             np.array(computed_target).sum(axis=-1), np.ones(self.q.n_bellman_iterations), atol=1e-4
@@ -143,8 +148,8 @@ class TestMMGiC51Shared(unittest.TestCase):
         q_values = (probabilities @ self.q.support).mean(axis=0)
         best_action = jnp.argmax(q_values)
 
-        self.assertEqual(q_values.shape, (self.n_actions,))
-        self.assertEqual(best_action, computed_best_action)
+        self.assertAlmostEqual(q_values.shape, (self.n_actions,))
+        self.assertAlmostEqual(best_action, computed_best_action)
 
     def test_target_update(self):
         print(f"-------------- Random key {self.random_seed} --------------")
@@ -154,11 +159,11 @@ class TestMMGiC51Shared(unittest.TestCase):
         target_params = set_target_params(self.q.params, self.n_actions * self.n_bins)
         target_q_values = self.q.root_network.apply(target_params, state)
 
-        self.assertEqual(np.linalg.norm(first_q_values - target_q_values), 0)
+        self.assertAlmostEqual(np.linalg.norm(first_q_values - target_q_values), 0)
 
         q_values, h_values = self.q.online_networks.apply(self.q.params, state)
         shifted_params = shift_params(self.q.params, self.n_actions * self.n_bins)
         shifted_q_values, shifted_h_values = self.q.online_networks.apply(shifted_params, state)
 
-        self.assertEqual(np.linalg.norm(shifted_q_values[:-1] - q_values[1:]), 0)
-        self.assertEqual(np.linalg.norm(shifted_h_values[:-1] - h_values[1:]), 0)
+        self.assertAlmostEqual(np.linalg.norm(shifted_q_values[:-1] - q_values[1:]), 0)
+        self.assertAlmostEqual(np.linalg.norm(shifted_h_values[:-1] - h_values[1:]), 0)

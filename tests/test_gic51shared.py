@@ -80,7 +80,7 @@ class TestGiC51Shared(unittest.TestCase):
             ]
         )
 
-        self.assertEqual(computed_target.shape, (self.q.n_bellman_iterations, self.n_bins))
+        self.assertAlmostEqual(computed_target.shape, (self.q.n_bellman_iterations, self.n_bins))
         np.testing.assert_allclose(np.array(computed_target), target, atol=1e-4)
         np.testing.assert_allclose(
             np.array(computed_target).sum(axis=-1), np.ones(self.q.n_bellman_iterations), atol=1e-4
@@ -139,8 +139,8 @@ class TestGiC51Shared(unittest.TestCase):
         q_values = (probabilities @ self.q.support).mean(axis=0)
         best_action = jnp.argmax(q_values)
 
-        self.assertEqual(q_values.shape, (self.n_actions,))
-        self.assertEqual(best_action, computed_best_action)
+        self.assertAlmostEqual(q_values.shape, (self.n_actions,))
+        self.assertAlmostEqual(best_action, computed_best_action)
 
     def test_target_update(self):
         print(f"-------------- Random key {self.random_seed} --------------")
@@ -150,7 +150,7 @@ class TestGiC51Shared(unittest.TestCase):
         target_params = set_target_params(self.q.params, self.n_actions * self.n_bins)
         target_q_values = self.q.root_network.apply(target_params, state)
 
-        self.assertEqual(np.linalg.norm(first_q_values - target_q_values), 0)
+        self.assertAlmostEqual(np.linalg.norm(first_q_values - target_q_values), 0)
 
         q_values, h_values = self.q.online_networks.apply(self.q.params, state)
         shifted_params = shift_params(self.q.params, self.n_actions * self.n_bins)

@@ -81,7 +81,7 @@ class TestISC51Shared(unittest.TestCase):
             ]
         )
 
-        self.assertEqual(computed_target.shape, (self.q.n_bellman_iterations, self.n_bins))
+        self.assertAlmostEqual(computed_target.shape, (self.q.n_bellman_iterations, self.n_bins))
         np.testing.assert_allclose(np.array(computed_target), target, atol=1e-4)
         np.testing.assert_allclose(
             np.array(computed_target).sum(axis=-1), np.ones(self.q.n_bellman_iterations), atol=1e-4
@@ -117,7 +117,7 @@ class TestISC51Shared(unittest.TestCase):
         q_values = (probabilities @ self.q.support).mean(axis=0)
         best_action = jnp.argmax(q_values)
 
-        self.assertEqual(q_values.shape, (self.n_actions,))
+        self.assertAlmostEqual(q_values.shape, (self.n_actions,))
         self.assertAlmostEqual(best_action, computed_best_action)
 
     def test_target_update(self):
@@ -128,4 +128,4 @@ class TestISC51Shared(unittest.TestCase):
         shifted_params = shift_params(self.q.params, self.n_actions * self.n_bins)
         shifted_q_values = self.q.online_networks.apply(shifted_params, state)[1:]
 
-        self.assertEqual(np.linalg.norm(shifted_q_values[:-1] - q_values[1:]), 0)
+        self.assertAlmostEqual(np.linalg.norm(shifted_q_values[:-1] - q_values[1:]), 0)

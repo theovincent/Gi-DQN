@@ -75,7 +75,7 @@ class TestMMC51RCShared(unittest.TestCase):
             self.n_bins,
         )
 
-        self.assertEqual(computed_target.shape, (self.n_bins,))
+        self.assertAlmostEqual(computed_target.shape, (self.n_bins,))
         self.assertAlmostEqual(float(jnp.sum(computed_target)), 1.0, places=4)
         np.testing.assert_allclose(np.array(computed_target), target, atol=1e-4)
 
@@ -111,5 +111,5 @@ class TestMMC51RCShared(unittest.TestCase):
         q_values = probabilities @ self.q.support
         best_action = jnp.argmax(q_values)
 
-        self.assertEqual(q_values.shape, (self.n_actions,))
-        self.assertEqual(best_action, computed_best_action)
+        self.assertAlmostEqual(q_values.shape, (self.n_actions,))
+        self.assertAlmostEqual(best_action, computed_best_action)

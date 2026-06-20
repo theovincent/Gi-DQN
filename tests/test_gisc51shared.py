@@ -118,7 +118,9 @@ class TestGiSC51Shared(unittest.TestCase):
 
         self.assertAlmostEqual(float((td_loss - h_loss).sum()), float(computed_loss), places=4)
         np.testing.assert_allclose(np.array(cross_entropy), np.array(computed_cross_entropy), atol=1e-4)
-        np.testing.assert_allclose(np.array(suboptimality[1:]), np.array(computed_suboptimality), atol=1e-4)
+        np.testing.assert_allclose(
+            np.array(suboptimality[1 - int(self.q.unfreeze_first_head) :]), np.array(computed_suboptimality), atol=1e-4
+        )
 
     def test_best_action(self):
         print(f"-------------- Random key {self.random_seed} --------------")

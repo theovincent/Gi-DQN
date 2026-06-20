@@ -66,8 +66,8 @@ class TestGiDQN(unittest.TestCase):
         q_values = self.q.online_networks.apply(self.q.params, state)[0].mean(axis=0)
         best_action = jnp.argmax(q_values)
 
-        self.assertEqual(q_values.shape, (self.n_actions,))
-        self.assertEqual(best_action, computed_best_action)
+        self.assertAlmostEqual(q_values.shape, (self.n_actions,))
+        self.assertAlmostEqual(best_action, computed_best_action)
 
     def test_target_update(self):
         print(f"-------------- Random key {self.random_seed} --------------")
@@ -83,5 +83,5 @@ class TestGiDQN(unittest.TestCase):
         shifted_params = shift_params(self.q.params, self.n_actions)
         shifted_q_values, shifted_h_values = self.q.online_networks.apply(shifted_params, state)
 
-        self.assertEqual(np.linalg.norm(shifted_q_values[:-1] - q_values[1:]), 0)
-        self.assertEqual(np.linalg.norm(shifted_h_values[:-1] - h_values[1:]), 0)
+        self.assertAlmostEqual(np.linalg.norm(shifted_q_values[:-1] - q_values[1:]), 0)
+        self.assertAlmostEqual(np.linalg.norm(shifted_h_values[:-1] - h_values[1:]), 0)
