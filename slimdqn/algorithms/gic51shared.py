@@ -174,15 +174,11 @@ class GiC51Shared:
 
         td_loss = target_loss + cross_entropy  # (K,)
 
-        suboptimality = (
-            cross_entropy + jnp.sum(jax.scipy.special.xlogy(target_distribution, target_distribution), axis=-1) - h_loss
-        )  # KL - DV >= 0
+        # suboptimality = (
+        #     cross_entropy + jnp.sum(jax.scipy.special.xlogy(target_distribution, target_distribution), axis=-1) - h_loss
+        # )  # KL - DV >= 0
 
-        return (
-            importance_weight * (td_loss - h_loss),
-            cross_entropy,
-            suboptimality[1:],
-        )
+        return (importance_weight * (td_loss - h_loss), td_loss, -td_loss)
 
     def compute_target(self, next_probabilities, sample: ReplayElement):
         next_q_values = next_probabilities @ self.support  # (K, n_actions)

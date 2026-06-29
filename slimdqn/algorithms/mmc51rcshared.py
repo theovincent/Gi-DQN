@@ -111,11 +111,15 @@ class MMC51RCShared:
             h_logits + jax.lax.stop_gradient(q_log_distribution)
         )
 
-        suboptimality = (
-            cross_entropy + jnp.sum(jax.scipy.special.xlogy(target_distribution, target_distribution), axis=-1) - h_loss
-        )  # KL - DV >= 0
+        # suboptimality = (
+        #     cross_entropy + jnp.sum(jax.scipy.special.xlogy(target_distribution, target_distribution), axis=-1) - h_loss
+        # )  # KL - DV >= 0
 
-        return (importance_weight * (td_loss - h_loss), cross_entropy, suboptimality)
+        return (
+            importance_weight * (td_loss - h_loss),
+            td_loss,
+            -td_loss,
+        )
 
     def compute_target(self, params: FrozenDict, sample: ReplayElement):
         q_next_logits = self.network.apply(params, sample.next_state)[0].reshape(

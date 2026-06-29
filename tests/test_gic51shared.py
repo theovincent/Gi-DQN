@@ -92,9 +92,7 @@ class TestGiC51Shared(unittest.TestCase):
         print(f"-------------- Random key {self.random_seed} --------------")
         sample = self.generator.sample(self.key)
 
-        computed_loss, computed_cross_entropy, computed_suboptimality = self.q.loss(
-            self.q.params, self.q.target_params, sample, jnp.ones(1)
-        )
+        computed_loss, _, _ = self.q.loss(self.q.params, self.q.target_params, sample, jnp.ones(1))
         computed_loss = computed_loss.sum()
 
         next_distribution_first = jax.nn.softmax(
@@ -123,13 +121,9 @@ class TestGiC51Shared(unittest.TestCase):
             - jax.scipy.special.logsumexp(h_logits + q_log_distribution[1:], axis=-1),
         )
         td_loss = target_loss - jnp.sum(target * q_log_distribution, axis=-1)  # (K,)
-        cross_entropy = -jnp.sum(target * q_log_distribution, axis=-1)  # (K,)
-        suboptimality = cross_entropy + jnp.sum(jax.scipy.special.xlogy(target, target), axis=-1) - h_loss  # (K,)
 
         np.testing.assert_array_equal(self.q.support, self.support)
         self.assertAlmostEqual(float((td_loss - h_loss).sum()), float(computed_loss), places=4)
-        np.testing.assert_allclose(np.array(cross_entropy), np.array(computed_cross_entropy), atol=1e-4)
-        np.testing.assert_allclose(np.array(suboptimality[1:]), np.array(computed_suboptimality), atol=1e-4)
 
     def test_best_action(self):
         print(f"-------------- Random key {self.random_seed} --------------")

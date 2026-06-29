@@ -83,7 +83,7 @@ class TestC51RCShared(unittest.TestCase):
         print(f"-------------- Random key {self.random_seed} --------------")
         sample = self.generator.sample(self.key)
 
-        computed_loss, computed_cross_entropy, computed_suboptimality = self.q.loss(self.q.params, sample, jnp.ones(1))
+        computed_loss, _, _ = self.q.loss(self.q.params, sample, jnp.ones(1))
 
         q_logits, h_logits = self.q.network.apply(self.q.params, sample.state)
         q_log_distribution = jax.nn.log_softmax(q_logits.reshape(self.n_actions, self.n_bins), axis=-1)[sample.action]
@@ -93,13 +93,9 @@ class TestC51RCShared(unittest.TestCase):
 
         td_loss = jnp.sum(target * h_logits) - jnp.sum(target * q_log_distribution)
         h_loss = jnp.sum(target * h_logits) - jax.scipy.special.logsumexp(h_logits + q_log_distribution)
-        cross_entropy = -jnp.sum(target * q_log_distribution)
-        suboptimality = cross_entropy + jnp.sum(jax.scipy.special.xlogy(target, target)) - h_loss
 
         np.testing.assert_array_equal(self.q.support, self.support)
         self.assertAlmostEqual((td_loss - h_loss).item(), computed_loss.item(), places=4)
-        self.assertAlmostEqual(cross_entropy.sum().item(), computed_cross_entropy.item(), places=4)
-        self.assertAlmostEqual(float(suboptimality), float(computed_suboptimality), places=4)
 
     def test_best_action(self):
         print(f"-------------- Random key {self.random_seed} --------------")
