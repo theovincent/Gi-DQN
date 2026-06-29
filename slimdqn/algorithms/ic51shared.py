@@ -97,7 +97,7 @@ class IC51Shared:
     def learn_on_batch(
         self, params: FrozenDict, target_params: FrozenDict, optimizer_state, batch_samples, importance_weights
     ):
-        grad_loss, (per_sample_q_losses) = jax.grad(self.loss_on_batch, has_aux=True)(
+        grad_loss, per_sample_q_losses = jax.grad(self.loss_on_batch, has_aux=True)(
             params, target_params, batch_samples, importance_weights
         )
         updates, optimizer_state = self.optimizer.update(grad_loss, optimizer_state, params)
@@ -113,7 +113,9 @@ class IC51Shared:
         return total_losses.mean(axis=0).sum(), q_losses
 
     def loss(self, params: FrozenDict, target_params: FrozenDict, sample: ReplayElement, importance_weight):
-        logits = self.online_networks.apply(params, sample.state).reshape(-1, self.n_actions, self.n_bins)[
+        logits = self.online_networks.apply(params, sample.state).reshape(
+            self.n_bellman_iterations, self.n_actions, self.n_bins
+        )[
             :, sample.action, :
         ]  # (K, n_actions, n_bins) -> (K, n_bins)
         log_distribution = jax.nn.log_softmax(logits, axis=-1)  # (K, n_bins)
@@ -124,7 +126,7 @@ class IC51Shared:
         next_distribution_first_target = jax.nn.softmax(next_logits_first_target, axis=-1)  # (n_actions, n_bins)
 
         next_logits_remaining_targets = self.online_networks.apply(params, sample.next_state).reshape(
-            -1, self.n_actions, self.n_bins
+            self.n_bellman_iterations, self.n_actions, self.n_bins
         )[
             :-1
         ]  # (K-1, n_actions, n_bins)
@@ -177,7 +179,9 @@ class IC51Shared:
 
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray):
-        logits = self.online_networks.apply(params, state).reshape(-1, self.n_actions, self.n_bins)
+        logits = self.online_networks.apply(params, state).reshape(
+            self.n_bellman_iterations, self.n_actions, self.n_bins
+        )
         probabilities = jax.nn.softmax(logits, axis=-1)
         q_values = (probabilities @ self.support).mean(axis=0)
         return jnp.argmax(q_values)

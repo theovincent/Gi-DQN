@@ -143,8 +143,8 @@ class MMGiC51Shared:
     def loss(self, params: FrozenDict, target_params: FrozenDict, sample: ReplayElement, importance_weight):
         q_logits, h_logits = self.online_networks.apply(params, sample.state)
         q_logits, h_logits = (
-            q_logits.reshape(-1, self.n_actions, self.n_bins)[:, sample.action, :],
-            h_logits.reshape(-1, self.n_actions, self.n_bins)[:, sample.action, :],
+            q_logits.reshape(self.n_bellman_iterations, self.n_actions, self.n_bins)[:, sample.action, :],
+            h_logits.reshape(self.n_bellman_iterations - 1, self.n_actions, self.n_bins)[:, sample.action, :],
         )  # (K, n_actions, n_bins) -> (K, n_bins), (K-1, n_actions, n_bins) ->(K-1, n_bins)
         q_log_distribution = jax.nn.log_softmax(q_logits, axis=-1)  # (K, n_bins)
 
@@ -153,7 +153,7 @@ class MMGiC51Shared:
         )  # (n_actions, n_bins)
         next_q_distribution_first_target = jax.nn.softmax(next_q_logits_first_target, axis=-1)  # (n_actions, n_bins)
         next_q_logits_remaining_targets = self.online_networks.apply(params, sample.next_state)[0].reshape(
-            -1, self.n_actions, self.n_bins
+            self.n_bellman_iterations, self.n_actions, self.n_bins
         )[
             :-1
         ]  # (K-1, n_actions, n_bins)
@@ -239,7 +239,9 @@ class MMGiC51Shared:
 
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray):
-        logits = self.online_networks.apply(params, state)[0].reshape(-1, self.n_actions, self.n_bins)
+        logits = self.online_networks.apply(params, state)[0].reshape(
+            self.n_bellman_iterations, self.n_actions, self.n_bins
+        )
         probabilities = jax.nn.softmax(logits, axis=-1)
         q_values = (probabilities @ self.support).mean(axis=0)
         return jnp.argmax(q_values)
