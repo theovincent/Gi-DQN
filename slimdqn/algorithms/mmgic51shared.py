@@ -172,11 +172,9 @@ class MMGiC51Shared:
         target_loss = jnp.append(jnp.zeros(1), target_loss)  # (K,)
         h_loss = jnp.append(jnp.zeros(1), h_loss)  # (K,)
 
-        td_loss = target_loss - jnp.sum(
-            jax.lax.stop_gradient(target_distribution) * q_log_distribution, axis=-1
-        )  # (K,)
-
         cross_entropy = -jnp.sum(jax.lax.stop_gradient(target_distribution) * q_log_distribution, axis=-1)  # (K,)
+
+        td_loss = target_loss + cross_entropy  # (K,)
 
         suboptimality = (
             cross_entropy + jnp.sum(jax.scipy.special.xlogy(target_distribution, target_distribution), axis=-1) - h_loss

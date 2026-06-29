@@ -99,17 +99,15 @@ class C51RCShared:
 
         target_distribution = self.compute_target(params, sample)  # (n_bins,)
 
+        cross_entropy = -jnp.sum(jax.lax.stop_gradient(target_distribution) * q_log_distribution)
+
         # KL(Target_Distr. || Return_Distr.) needs to be minimized
-        td_loss = jnp.sum(target_distribution * jax.lax.stop_gradient(h_logits)) - jnp.sum(
-            jax.lax.stop_gradient(target_distribution) * q_log_distribution
-        )
+        td_loss = jnp.sum(target_distribution * jax.lax.stop_gradient(h_logits)) + cross_entropy
 
         # Donsker-Varadhan needs to be maximized
         h_loss = jnp.sum(jax.lax.stop_gradient(target_distribution) * h_logits) - jax.scipy.special.logsumexp(
             h_logits + jax.lax.stop_gradient(q_log_distribution)
         )
-
-        cross_entropy = -jnp.sum(jax.lax.stop_gradient(target_distribution) * q_log_distribution)
 
         suboptimality = (
             cross_entropy + jnp.sum(jax.scipy.special.xlogy(target_distribution, target_distribution)) - h_loss
