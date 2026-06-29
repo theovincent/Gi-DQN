@@ -49,6 +49,8 @@ class TestMMC51(unittest.TestCase):
             1,
         )
         self.n_bins = self.q.n_bins
+        self.vmin, self.vmax = -10, 10
+        self.support = jnp.linspace(self.vmin, self.vmax, self.n_bins)
 
         self.generator = Generator(None, self.observation_dim, self.n_actions)
 
@@ -69,8 +71,8 @@ class TestMMC51(unittest.TestCase):
             float(sample.reward),
             float(sample.is_terminal),
             self.q.gamma**self.q.update_horizon,
-            self.q.vmin,
-            self.q.vmax,
+            self.vmin,
+            self.vmax,
             self.n_bins,
         )
 
@@ -87,6 +89,8 @@ class TestMMC51(unittest.TestCase):
         logits = self.q.network.apply(self.q.params, sample.state).reshape(self.n_actions, self.n_bins)
         log_distribution = jax.nn.log_softmax(logits, axis=-1)
         cross_entropy = -jnp.sum(target_distribution * log_distribution[sample.action])
+
+        np.testing.assert_array_equal(self.q.support, self.support)
         self.assertAlmostEqual(cross_entropy.sum().item(), computed_loss.item(), places=3)
 
     def test_best_action(self):

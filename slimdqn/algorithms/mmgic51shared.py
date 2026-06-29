@@ -46,10 +46,9 @@ class MMGiC51Shared:
         vmax: int = 10,
     ):
         self.omega = omega
-        self.vmin, self.vmax = vmin, vmax
         self.n_actions = n_actions
         self.n_bins = n_bins
-        self.support = jnp.linspace(self.vmin, self.vmax, self.n_bins)
+        self.support = jnp.linspace(vmin, vmax, self.n_bins)
         self.n_bellman_iterations = n_bellman_iterations
         self.n_actions = n_actions
         # 2K Networks: Q_0, Q_1 to Q_K, TD-Surrogate_1 to TD-Surrogate_K-1
@@ -212,10 +211,12 @@ class MMGiC51Shared:
             self.support[None, :] + shift[:, None]
         )  # (K,n_bins); Shift
 
-        clipped_non_aligned_target_atoms = jnp.clip(non_aligned_target_atoms, self.vmin, self.vmax)  # (K, n_bins)
+        clipped_non_aligned_target_atoms = jnp.clip(
+            non_aligned_target_atoms, self.support[0], self.support[-1]
+        )  # (K, n_bins)
 
         fractional_coordinates = (clipped_non_aligned_target_atoms - self.support[0]) / (
-            (self.vmax - self.vmin) / (self.n_bins - 1)
+            (self.support[-1] - self.support[0]) / (self.n_bins - 1)
         )  # (K, n_bins)
         lower, upper = jnp.floor(fractional_coordinates).astype(jnp.int32), jnp.ceil(fractional_coordinates).astype(
             jnp.int32

@@ -50,6 +50,8 @@ class TestMMIC51Shared(unittest.TestCase):
             1,
         )
         self.n_bins = self.q.n_bins
+        self.vmin, self.vmax = -10, 10
+        self.support = jnp.linspace(self.vmin, self.vmax, self.n_bins)
 
         self.generator = Generator(None, self.observation_dim, self.n_actions)
 
@@ -79,8 +81,8 @@ class TestMMIC51Shared(unittest.TestCase):
                     float(sample.reward),
                     float(sample.is_terminal),
                     self.q.gamma**self.q.update_horizon,
-                    self.q.vmin,
-                    self.q.vmax,
+                    self.vmin,
+                    self.vmax,
                     self.n_bins,
                     shift[k],
                 )
@@ -117,6 +119,7 @@ class TestMMIC51Shared(unittest.TestCase):
         log_distribution = jax.nn.log_softmax(logits, axis=-1)
         cross_entropy = -jnp.sum(target_distribution * log_distribution[:, sample.action, :], axis=-1)  # (K,)
 
+        np.testing.assert_array_equal(self.q.support, self.support)
         self.assertAlmostEqual(float(cross_entropy.sum()), float(computed_loss), places=4)
 
     def test_best_action(self):

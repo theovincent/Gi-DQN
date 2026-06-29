@@ -50,6 +50,8 @@ class TestMMC51RCShared(unittest.TestCase):
             1,
         )
         self.n_bins = self.q.n_bins
+        self.vmin, self.vmax = -10, 10
+        self.support = jnp.linspace(self.vmin, self.vmax, self.n_bins)
 
         self.generator = Generator(None, self.observation_dim, self.n_actions)
 
@@ -70,8 +72,8 @@ class TestMMC51RCShared(unittest.TestCase):
             float(sample.reward),
             float(sample.is_terminal),
             self.q.gamma**self.q.update_horizon,
-            self.q.vmin,
-            self.q.vmax,
+            self.vmin,
+            self.vmax,
             self.n_bins,
         )
 
@@ -96,6 +98,7 @@ class TestMMC51RCShared(unittest.TestCase):
         cross_entropy = -jnp.sum(target * q_log_distribution)
         suboptimality = cross_entropy + jnp.sum(jax.scipy.special.xlogy(target, target)) - h_loss
 
+        np.testing.assert_array_equal(self.q.support, self.support)
         self.assertAlmostEqual((td_loss - h_loss).item(), computed_loss.item(), places=4)
         self.assertAlmostEqual(cross_entropy.sum().item(), computed_cross_entropy.item(), places=4)
         self.assertAlmostEqual(float(suboptimality), float(computed_suboptimality), places=4)
