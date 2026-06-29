@@ -59,7 +59,7 @@ class C51RCShared:
                 self.params, self.optimizer_state, batch_samples, importance_weights
             )
 
-            replay_buffer.update(sample_keys, per_sample_q_loss + jnp.maximum(per_sample_h_loss, 0.0))
+            replay_buffer.update(sample_keys, per_sample_q_loss + per_sample_h_loss, 0.0)
 
             self.cumulative_q_loss += per_sample_q_loss.mean()
             self.cumulative_h_loss += per_sample_h_loss.mean()
