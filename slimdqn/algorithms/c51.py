@@ -87,14 +87,16 @@ class C51:
         return losses.mean(), q_losses
 
     def loss(self, params: FrozenDict, params_target: FrozenDict, sample: ReplayElement, importance_weight):
-        logits = self.network.apply(params, sample.state).reshape(self.n_actions, self.n_bins)  # (n_actions, n_bins)
+        logits = self.network.apply(params, sample.state).reshape(self.n_actions, self.n_bins)[
+            sample.action, :
+        ]  # (n_actions, n_bins) -> (n_bins,)
         log_distribution = jax.nn.log_softmax(
             logits, axis=-1
         )  # (n_actions, n_bins) log softmax for numerical stability
 
         target_distribution = self.compute_target(params_target, sample)  # (n_bins,)
 
-        cross_entropy = -jnp.sum(target_distribution * log_distribution[sample.action, :])  # (1,)
+        cross_entropy = -jnp.sum(target_distribution * log_distribution)  # (1,)
 
         return cross_entropy * importance_weight, cross_entropy
 

@@ -129,11 +129,11 @@ class GiSC51Shared:
 
     def loss(self, params: FrozenDict, sample: ReplayElement, importance_weight):
         q_logits, h_logits = self.networks.apply(params, sample.state)
-        q_logits, h_logits = q_logits.reshape(-1, self.n_actions, self.n_bins)[1:], h_logits.reshape(
-            -1, self.n_actions, self.n_bins
-        )  # (K, n_actions, n_bins), (K-1 if not self.unfreeze_first_head else K, n_actions, n_bins)
-        q_log_distribution = jax.nn.log_softmax(q_logits, axis=-1)  # (K, n_actions, n_bins)
-        h_logits = h_logits[:, sample.action, :]  # (K-1 if not self.unfreeze_first_head else K, n_bins)
+        q_logits, h_logits = (
+            q_logits.reshape(-1, self.n_actions, self.n_bins)[1:, sample.action, :],
+            h_logits.reshape(-1, self.n_actions, self.n_bins)[:, sample.action, :],
+        )  # (K, n_actions, n_bins) -> (K, n_bins), (K-1 if not self.unfreeze_first_head else K, n_actions, n_bins) -> (K-1 or K, n_bins)
+        q_log_distribution = jax.nn.log_softmax(q_logits, axis=-1)  # (K, n_bins)
 
         next_q_logits_targets = self.networks.apply(params, sample.next_state)[0].reshape(
             -1, self.n_actions, self.n_bins
@@ -151,7 +151,7 @@ class GiSC51Shared:
         h_loss = jnp.sum(
             jax.lax.stop_gradient(target_distribution[1 - int(self.unfreeze_first_head) :, :]) * h_logits, axis=-1
         ) - jax.scipy.special.logsumexp(
-            h_logits + jax.lax.stop_gradient(q_log_distribution[1 - int(self.unfreeze_first_head) :, sample.action, :]),
+            h_logits + jax.lax.stop_gradient(q_log_distribution[1 - int(self.unfreeze_first_head) :, :]),
             axis=-1,
         )  # (K-1 if not self.unfreeze_first_head else K,)
 
@@ -160,12 +160,10 @@ class GiSC51Shared:
             h_loss = jnp.append(jnp.zeros(1), h_loss)  # (K,)
 
         td_loss = target_loss - jnp.sum(
-            jax.lax.stop_gradient(target_distribution) * q_log_distribution[:, sample.action, :], axis=-1
+            jax.lax.stop_gradient(target_distribution) * q_log_distribution, axis=-1
         )  # (K,)
 
-        cross_entropy = -jnp.sum(
-            jax.lax.stop_gradient(target_distribution) * q_log_distribution[:, sample.action, :], axis=-1
-        )  # (K,)
+        cross_entropy = -jnp.sum(jax.lax.stop_gradient(target_distribution) * q_log_distribution, axis=-1)  # (K,)
 
         suboptimality = (
             cross_entropy + jnp.sum(jax.scipy.special.xlogy(target_distribution, target_distribution), axis=-1) - h_loss

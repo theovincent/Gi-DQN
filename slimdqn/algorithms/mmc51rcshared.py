@@ -94,11 +94,11 @@ class MMC51RCShared:
     def loss(self, params: FrozenDict, sample: ReplayElement, importance_weight):
         """Distributional TDRC with KL Divergence in Donsker-Varadhan Representation"""
         q_logits, h_logits = self.network.apply(params, sample.state)
-        q_logits, h_logits = q_logits.reshape(self.n_actions, self.n_bins), h_logits.reshape(
-            self.n_actions, self.n_bins
-        )  # (n_actions, n_bins), (n_actions, n_bins)
-        q_log_distribution = jax.nn.log_softmax(q_logits, axis=-1)[sample.action, :]  # (n_bins,)
-        h_logits = h_logits[sample.action, :]  # (n_bins,)
+        q_logits, h_logits = (
+            q_logits.reshape(self.n_actions, self.n_bins)[sample.action, :],
+            h_logits.reshape(self.n_actions, self.n_bins)[sample.action, :],
+        )  # (n_actions, n_bins) -> (n_bins,), (n_actions, n_bins) -> (n_bins,)
+        q_log_distribution = jax.nn.log_softmax(q_logits, axis=-1)  # (n_bins,)
 
         target_distribution = self.compute_target(params, sample)  # (n_bins,)
 

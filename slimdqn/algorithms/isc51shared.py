@@ -100,9 +100,9 @@ class ISC51Shared:
 
     def loss(self, params: FrozenDict, sample: ReplayElement, importance_weight):
         logits = self.online_networks.apply(params, sample.state).reshape(-1, self.n_actions, self.n_bins)[
-            1:
-        ]  # (K, n_actions, n_bins)
-        log_distribution = jax.nn.log_softmax(logits, axis=-1)  # (K, n_actions, n_bins)
+            1:, sample.action, :
+        ]  # (K, n_actions, n_bins) -> (K, n_bins)
+        log_distribution = jax.nn.log_softmax(logits, axis=-1)  # (K, n_bins)
 
         next_logits_targets = self.online_networks.apply(params, sample.next_state).reshape(
             -1, self.n_actions, self.n_bins
@@ -113,9 +113,7 @@ class ISC51Shared:
 
         target_distribution = self.compute_target(next_distribution_targets, sample)  # (K, n_bins)
 
-        cross_entropy = -jnp.sum(
-            jax.lax.stop_gradient(target_distribution) * log_distribution[:, sample.action, :], axis=-1
-        )  # (K,)
+        cross_entropy = -jnp.sum(jax.lax.stop_gradient(target_distribution) * log_distribution, axis=-1)  # (K,)
 
         return importance_weight * cross_entropy, cross_entropy
 

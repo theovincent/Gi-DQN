@@ -114,10 +114,10 @@ class MMIC51Shared:
         return total_losses.mean(axis=0).sum(), q_losses
 
     def loss(self, params: FrozenDict, target_params: FrozenDict, sample: ReplayElement, importance_weight):
-        logits = self.online_networks.apply(params, sample.state).reshape(
-            -1, self.n_actions, self.n_bins
-        )  # (K, n_actions, n_bins)
-        log_distribution = jax.nn.log_softmax(logits, axis=-1)  # (K, n_actions, n_bins)
+        logits = self.online_networks.apply(params, sample.state).reshape(-1, self.n_actions, self.n_bins)[
+            :, sample.action, :
+        ]  # (K, n_actions, n_bins) -> (K, n_bins)
+        log_distribution = jax.nn.log_softmax(logits, axis=-1)  # (K, n_bins)
 
         next_logits_first_target = self.root_network.apply(target_params, sample.next_state).reshape(
             self.n_actions, self.n_bins
@@ -139,9 +139,7 @@ class MMIC51Shared:
 
         target_distribution = self.compute_target(next_distribution, sample)  # (K, n_bins)
 
-        cross_entropy = -jnp.sum(
-            jax.lax.stop_gradient(target_distribution) * log_distribution[:, sample.action, :], axis=-1
-        )  # (K,)
+        cross_entropy = -jnp.sum(jax.lax.stop_gradient(target_distribution) * log_distribution, axis=-1)  # (K,)
 
         return importance_weight * cross_entropy, cross_entropy
 
