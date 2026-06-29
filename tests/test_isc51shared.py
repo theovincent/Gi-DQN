@@ -128,7 +128,7 @@ class TestISC51Shared(unittest.TestCase):
         state = self.generator.state(self.key)
 
         q_values = self.q.online_networks.apply(self.q.params, state)[1:]
-        shifted_params = shift_params(self.q.params, self.n_actions * self.n_bins)
+        shifted_params = shift_params(self.q.params, self.n_actions, self.n_bins)
         shifted_q_values = self.q.online_networks.apply(shifted_params, state)[1:]
 
         self.assertAlmostEqual(np.linalg.norm(shifted_q_values[:-1] - q_values[1:]), 0)

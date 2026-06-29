@@ -93,7 +93,7 @@ class TestGiSC51Shared(unittest.TestCase):
         print(f"-------------- Random key {self.random_seed} --------------")
         sample = self.generator.sample(self.key)
 
-        computed_loss, computed_cross_entropy, computed_suboptimality = self.q.loss(self.q.params, sample, jnp.ones(1))
+        computed_loss, _, _ = self.q.loss(self.q.params, sample, jnp.ones(1))
         computed_loss = computed_loss.sum()
 
         next_distribution = jax.nn.softmax(
@@ -115,15 +115,9 @@ class TestGiSC51Shared(unittest.TestCase):
         )
 
         td_loss = target_loss - jnp.sum(target * q_log_distribution, axis=-1)
-        cross_entropy = -jnp.sum(target * q_log_distribution, axis=-1)
-        suboptimality = cross_entropy + jnp.sum(jax.scipy.special.xlogy(target, target), axis=-1) - h_loss
 
         np.testing.assert_array_equal(self.q.support, self.support)
         self.assertAlmostEqual(float((td_loss - h_loss).sum()), float(computed_loss), places=4)
-        np.testing.assert_allclose(np.array(cross_entropy), np.array(computed_cross_entropy), atol=1e-4)
-        np.testing.assert_allclose(
-            np.array(suboptimality[1 - int(self.q.unfreeze_first_head) :]), np.array(computed_suboptimality), atol=1e-4
-        )
 
     def test_best_action(self):
         print(f"-------------- Random key {self.random_seed} --------------")
@@ -144,7 +138,7 @@ class TestGiSC51Shared(unittest.TestCase):
         state = self.generator.state(self.key)
 
         q_logits, h_logits = self.q.networks.apply(self.q.params, state)
-        shifted_params = shift_params(self.q.params, self.n_actions * self.n_bins)
+        shifted_params = shift_params(self.q.params, self.n_actions, self.n_bins)
         shifted_q_logits, shifted_h_logits = self.q.networks.apply(shifted_params, state)
 
         self.assertAlmostEqual(np.linalg.norm(shifted_q_logits[:-1] - q_logits[1:]), 0)

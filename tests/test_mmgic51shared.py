@@ -153,13 +153,13 @@ class TestMMGiC51Shared(unittest.TestCase):
         state = self.generator.state(self.key)
 
         first_q_values = self.q.online_networks.apply(self.q.params, state)[0][0]
-        target_params = set_target_params(self.q.params, self.n_actions * self.n_bins)
+        target_params = set_target_params(self.q.params, self.n_actions, self.n_bins)
         target_q_values = self.q.root_network.apply(target_params, state)
 
         self.assertAlmostEqual(np.linalg.norm(first_q_values - target_q_values), 0)
 
         q_values, h_values = self.q.online_networks.apply(self.q.params, state)
-        shifted_params = shift_params(self.q.params, self.n_actions * self.n_bins)
+        shifted_params = shift_params(self.q.params, self.n_actions, self.n_bins)
         shifted_q_values, shifted_h_values = self.q.online_networks.apply(shifted_params, state)
 
         self.assertAlmostEqual(np.linalg.norm(shifted_q_values[:-1] - q_values[1:]), 0)

@@ -11,16 +11,20 @@ from slimdqn.algorithms.architectures.dqn import DQNNet
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 
-@partial(jax.jit, static_argnames="n_actions")
-def set_target_params(params, n_actions):
-    q_heads = jax.tree.map(lambda p: p[..., :n_actions], params["params"]["q_heads"])
+@partial(jax.jit, static_argnames=("n_actions", "n_bins"))
+def set_target_params(params, n_actions, n_bins):
+    q_heads = jax.tree.map(lambda p: p[..., : n_actions * n_bins], params["params"]["q_heads"])
     return optax.tree_utils.tree_set(params, q_heads=q_heads, h_heads=None)
 
 
-@partial(jax.jit, static_argnames="n_actions")
-def shift_params(params, n_actions):
-    q_heads = jax.tree.map(lambda p: p.at[..., :-n_actions].set(p[..., n_actions:]), params["params"]["q_heads"])
-    h_heads = jax.tree.map(lambda p: p.at[..., :-n_actions].set(p[..., n_actions:]), params["params"]["h_heads"])
+@partial(jax.jit, static_argnames=("n_actions", "n_bins"))
+def shift_params(params, n_actions, n_bins):
+    q_heads = jax.tree.map(
+        lambda p: p.at[..., : -n_actions * n_bins].set(p[..., n_actions * n_bins :]), params["params"]["q_heads"]
+    )
+    h_heads = jax.tree.map(
+        lambda p: p.at[..., : -n_actions * n_bins].set(p[..., n_actions * n_bins :]), params["params"]["h_heads"]
+    )
 
     return optax.tree_utils.tree_set(params, q_heads=q_heads, h_heads=h_heads)
 
@@ -60,7 +64,7 @@ class MMGiC51Shared:
         # initialize 1 network with K q-heads and K OR K-1 h-heads
         self.params = self.online_networks.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
         # initialize the target network
-        self.target_params = set_target_params(self.params, self.n_actions * self.n_bins)
+        self.target_params = set_target_params(self.params, self.n_actions, self.n_bins)
 
         self.optimizer = optax.adamw(
             learning_rate,
@@ -97,8 +101,8 @@ class MMGiC51Shared:
 
     def update_target_params(self, step: int):
         if step % self.target_update_period == 0:
-            self.target_params = set_target_params(self.params, self.n_actions * self.n_bins)
-            self.params = shift_params(self.params, self.n_actions * self.n_bins)
+            self.target_params = set_target_params(self.params, self.n_actions, self.n_bins)
+            self.params = shift_params(self.params, self.n_actions, self.n_bins)
 
             self.logs = {
                 "n_training_steps": step,
