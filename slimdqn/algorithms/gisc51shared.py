@@ -166,16 +166,10 @@ class GiSC51Shared:
 
         cross_entropy = -jnp.sum(jax.lax.stop_gradient(target_distribution) * q_log_distribution, axis=-1)  # (K,)
 
-        td_loss = target_loss + cross_entropy  # (K,)
-
-        suboptimality = (
-            cross_entropy + jnp.sum(jax.scipy.special.xlogy(target_distribution, target_distribution), axis=-1) - h_loss
-        )  # KL - DV >= 0
-
         return (
             importance_weight * (td_loss - h_loss),
-            cross_entropy,
-            suboptimality[1 - int(self.unfreeze_first_head) :],
+            td_loss,
+            -td_loss[1 - int(self.unfreeze_first_head):],
         )
 
     def compute_target(self, next_probabilities, sample: ReplayElement):

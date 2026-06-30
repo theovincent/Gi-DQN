@@ -109,10 +109,6 @@ class C51RCShared:
             h_logits + jax.lax.stop_gradient(q_log_distribution)
         )
 
-        # suboptimality = (
-        #     cross_entropy + jnp.sum(jax.scipy.special.xlogy(target_distribution, target_distribution)) - h_loss
-        # )  # KL - DV >= 0
-
         return (importance_weight * (td_loss - h_loss), td_loss, -td_loss)
 
     def compute_target(self, params: FrozenDict, sample: ReplayElement):
