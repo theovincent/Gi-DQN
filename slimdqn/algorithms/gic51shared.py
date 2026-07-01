@@ -178,7 +178,7 @@ class GiC51Shared:
 
         td_loss = target_loss + cross_entropy  # (K,)
 
-        return (importance_weight * (td_loss - h_loss), td_loss, -td_loss)
+        return (importance_weight * (td_loss - h_loss), td_loss, -td_loss[1:])
 
     def compute_target(self, next_probabilities, sample: ReplayElement):
         next_q_values = next_probabilities @ self.support  # (K, n_actions)
