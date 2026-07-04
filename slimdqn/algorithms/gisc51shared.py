@@ -85,9 +85,7 @@ class GiSC51Shared:
                 self.params, self.optimizer_state, batch_samples, importance_weights
             )
 
-            replay_buffer.update(
-                sample_keys, per_sample_q_losses.mean(axis=1) + jnp.maximum(per_sample_h_losses.mean(axis=1), 0.0)
-            )
+            replay_buffer.update(sample_keys, per_sample_q_losses.mean(axis=1) + per_sample_h_losses.mean(axis=1))
 
             self.cumulative_q_losses += per_sample_q_losses.mean(axis=0)
             self.cumulative_h_losses += per_sample_h_losses.mean(axis=0)
@@ -169,7 +167,7 @@ class GiSC51Shared:
         return (
             importance_weight * (td_loss - h_loss),
             td_loss,
-            -td_loss[1 - int(self.unfreeze_first_head):],
+            -td_loss[1 - int(self.unfreeze_first_head) :],
         )
 
     def compute_target(self, next_probabilities, sample: ReplayElement):
