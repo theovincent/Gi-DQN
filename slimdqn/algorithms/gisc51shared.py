@@ -165,9 +165,9 @@ class GiSC51Shared:
         cross_entropy = -jnp.sum(jax.lax.stop_gradient(target_distribution) * q_log_distribution, axis=-1)  # (K,)
 
         return (
-            importance_weight * (td_loss - h_loss),
-            td_loss,
-            -td_loss[1 - int(self.unfreeze_first_head) :],
+            importance_weight * (cross_entropy - h_loss),
+            cross_entropy,
+            -cross_entropy[1 - int(self.unfreeze_first_head) :],
         )
 
     def compute_target(self, next_probabilities, sample: ReplayElement):
