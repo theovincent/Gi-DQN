@@ -101,7 +101,7 @@ class EPSTDDQNRCShared:
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray):
         # H-predictions are used for exploration
-        q_values, h_values = self.online_networks.apply(params, state)
+        q_values, h_values = self.network.apply(params, state)
         return jnp.argmax(q_values), jnp.argmax(jnp.absolute(h_values))
 
     def get_model(self):

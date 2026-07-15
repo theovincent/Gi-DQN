@@ -50,6 +50,7 @@ def run(argvs=sys.argv[1:]):
         vmin=-10,
         vmax=10,
     )
+    p["epsilon_td"] = True
     train(train_key, p, agent, env, rb)
 
 
