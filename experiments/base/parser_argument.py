@@ -250,6 +250,14 @@ def add_gidqnshared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
 
+@output_added_arguments
+def add_epstddqnrcshared_arguments(parser: argparse.ArgumentParser):
+    add_weight_decay(parser)
+
+@output_added_arguments
+def add_epstdgidqnshared_arguments(parser: argparse.ArgumentParser):
+    add_n_bellman_iterations(parser)
+    add_weight_decay(parser)
 
 @output_added_arguments
 def add_randompolicy_arguments(parser: argparse.ArgumentParser):
@@ -379,4 +387,4 @@ def add_epstdgic51shared_arguments(parser: argparse.ArgumentParser):
     add_n_bellman_iterations(parser)
     add_weight_decay(parser)
     add_epsilon_td(parser)
-    add_nbin
+    add_nbins(parser)
