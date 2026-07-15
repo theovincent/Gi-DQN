@@ -163,6 +163,7 @@ class GiSC51Shared:
             h_loss = jnp.append(jnp.zeros(1), h_loss)  # (K,)
 
         cross_entropy = -jnp.sum(jax.lax.stop_gradient(target_distribution) * q_log_distribution, axis=-1)  # (K,)
+        td_loss = target_loss + cross_entropy  # (K,)
 
         return (
             importance_weight * (td_loss - h_loss),

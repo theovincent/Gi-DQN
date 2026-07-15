@@ -29,7 +29,7 @@ def shift_params(params, n_actions, n_bins):
     return optax.tree_utils.tree_set(params, q_heads=q_heads, h_heads=h_heads)
 
 
-class GiC51Shared:
+class EPSTDGiC51Shared:
     def __init__(
         self,
         key: jax.random.PRNGKey,
@@ -140,7 +140,7 @@ class GiC51Shared:
         q_logits, h_logits = self.online_networks.apply(params, sample.state)
         q_logits, h_logits = (
             q_logits.reshape(self.n_bellman_iterations, self.n_actions, self.n_bins)[:, sample.action, :],
-            h_logits.reshape(self.n_bellman_iterations -1, self.n_actions, self.n_bins)[:, sample.action, :],
+            h_logits.reshape(self.n_bellman_iterations - 1, self.n_actions, self.n_bins)[:, sample.action, :],
         )  # (K, n_actions, n_bins) -> (K, n_bins), (K-1, n_actions, n_bins) -> (K-1, n_bins)
         q_log_distribution = jax.nn.log_softmax(q_logits, axis=-1)  # (K, n_actions, n_bins)
 
@@ -213,10 +213,27 @@ class GiC51Shared:
 
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray):
-        logits = self.online_networks.apply(params, state)[0].reshape(-1, self.n_actions, self.n_bins)
-        probabilities = jax.nn.softmax(logits, axis=-1)
-        q_values = (probabilities @ self.support).mean(axis=0)
-        return jnp.argmax(q_values)
+
+        q_logits, h_logits = self.online_networks.apply(params, state)
+        q_logits, h_logits = (
+            q_logits.reshape(self.n_bellman_iterations, self.n_actions, self.n_bins),
+            h_logits.reshape(self.n_bellman_iterations -1, self.n_actions, self.n_bins),
+        )  # (K, n_actions, n_bins), (K-1, n_actions, n_bins)
+
+        q_probabilities = jax.nn.softmax(q_logits, axis=-1) # (K, n_actions, n_bins)
+        h_probabilities = jax.nn.softmax(h_logits, axis=-1) # (K-1, n_actions, n_bins)
+
+        q_values = q_probabilities @ self.support  # (K, n_actions)
+        h_values = h_probabilities @ self.support  # (K-1, n_actions)
+
+        q_values_mean = q_values.mean(axis=0)
+        h_values_mean_abs = jnp.abs(h_values.mean(axis=0))
+
+        q_action = jnp.argmax(q_values_mean, axis=-1)
+        h_action = jnp.argmax(h_values_mean_abs, axis=-1)
+
+        return q_action, h_action
+
 
     def get_model(self):
         return {"params": self.params}
