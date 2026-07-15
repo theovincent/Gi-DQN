@@ -139,8 +139,8 @@ class GiC51Shared:
     def loss(self, params: FrozenDict, target_params: FrozenDict, sample: ReplayElement, importance_weight):
         q_logits, h_logits = self.online_networks.apply(params, sample.state)
         q_logits, h_logits = (
-            q_logits.reshape(-1, self.n_actions, self.n_bins)[:, sample.action, :],
-            h_logits.reshape(-1, self.n_actions, self.n_bins)[:, sample.action, :],
+            q_logits.reshape(self.n_bellman_iterations, self.n_actions, self.n_bins)[:, sample.action, :],
+            h_logits.reshape(self.n_bellman_iterations -1, self.n_actions, self.n_bins)[:, sample.action, :],
         )  # (K, n_actions, n_bins) -> (K, n_bins), (K-1, n_actions, n_bins) -> (K-1, n_bins)
         q_log_distribution = jax.nn.log_softmax(q_logits, axis=-1)  # (K, n_actions, n_bins)
 
