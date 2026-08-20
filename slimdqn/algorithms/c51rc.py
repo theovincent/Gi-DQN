@@ -145,17 +145,18 @@ class C51RC:
 
         next_q_probs = jax.nn.softmax(self.network.apply(params, sample.next_state), axis=-1)[best_action]
         projected_target = self.compute_target(next_q_probs, sample)
-        baseline = jax.scipy.special.logsumexp(a=h_logits_a, b=jax.lax.stop_gradient(q_value_probs))
-        centered_h_logits = h_logits_a - baseline
-        kl = jnp.sum(jax.lax.stop_gradient(centered_h_logits) * projected_target) + optax.softmax_cross_entropy(
+        kl = jnp.sum(jax.lax.stop_gradient(h_logits_a) * projected_target) + optax.softmax_cross_entropy(
             q_logits_a, jax.lax.stop_gradient(projected_target)
         )
-        h_loss = -jnp.sum(centered_h_logits * jax.lax.stop_gradient(projected_target), axis=-1)
+
+        h_loss = -jnp.sum(h_logits_a * jax.lax.stop_gradient(projected_target), axis=-1) + jax.scipy.special.logsumexp(
+            h_logits_a, axis=-1, b=jax.lax.stop_gradient(q_value_probs)
+        )
 
         return (
             importance_weight * (kl + h_loss),
             optax.softmax_cross_entropy(q_logits_a, projected_target),
-            optax.softmax_cross_entropy(h_logits_a, projected_target),
+            optax.softmax_cross_entropy(jnp.log(q_value_probs) + h_logits_a, projected_target),
         )
 
     def compute_target(self, next_q, sample: ReplayElement):
@@ -174,7 +175,7 @@ class C51RC:
         return m
 
     @partial(jax.jit, static_argnames="self")
-    def best_action(self, params: FrozenDict, state: jnp.ndarray, key=None):
+    def best_action(self, params: FrozenDict, state: jnp.ndarray):
         # computes the best action for a single state
         return jnp.argmax(jax.nn.softmax(self.network.apply(params, state), axis=-1) @ self.support)
 

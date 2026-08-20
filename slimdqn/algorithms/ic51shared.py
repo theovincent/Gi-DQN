@@ -96,7 +96,7 @@ class iC51Shared:
                 return None
             batch_samples, (sample_keys, importance_weights) = replay_buffer.sample()
 
-            (self.params, self.optimizer_state, per_sample_q_losses) = self.learn_on_batch(
+            self.params, self.optimizer_state, per_sample_q_losses = self.learn_on_batch(
                 self.params,
                 self.target_params,
                 self.optimizer_state,
@@ -179,7 +179,7 @@ class iC51Shared:
         return m
 
     @partial(jax.jit, static_argnames="self")
-    def best_action(self, params: FrozenDict, state: jnp.ndarray, key=None):
+    def best_action(self, params: FrozenDict, state: jnp.ndarray):
         # computes the best action for a single state
         return jnp.argmax(
             (jax.nn.softmax(self.online_networks.apply(params, state), axis=-1) @ self.support).mean(axis=0)

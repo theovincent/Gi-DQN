@@ -182,16 +182,15 @@ class GiC51:
         )
         projected_targets = self.compute_target(target_next_q_probs[:, best_action], sample)
 
-        baseline = jax.scipy.special.logsumexp(a=h_logits_a, b=jax.lax.stop_gradient(q_value_probs[1:]), axis=-1)[
-            :, None
-        ]
-        centered_h_logits = h_logits_a - baseline
-        target_loss = jnp.sum(jax.lax.stop_gradient(centered_h_logits) * projected_targets[1:], axis=-1)
+        target_loss = jnp.sum(jax.lax.stop_gradient(h_logits_a) * projected_targets[1:], axis=-1)
         target_loss = jnp.append(jnp.zeros(1), target_loss)
         ce_loss = optax.softmax_cross_entropy(q_logits_a, jax.lax.stop_gradient(projected_targets), axis=-1)
 
         kl = target_loss + ce_loss
-        h_loss = -jnp.sum(centered_h_logits * jax.lax.stop_gradient(projected_targets[1:]), axis=-1)
+        h_loss = -jnp.sum(
+            h_logits_a * jax.lax.stop_gradient(projected_targets[1:]), axis=-1
+        ) + jax.scipy.special.logsumexp(h_logits_a, axis=-1, b=jax.lax.stop_gradient(q_value_probs[1:]))
+
         h_loss = jnp.append(jnp.zeros(1), h_loss)
 
         return (
@@ -217,7 +216,7 @@ class GiC51:
         return m
 
     @partial(jax.jit, static_argnames="self")
-    def best_action(self, params: FrozenDict, state: jnp.ndarray, key=None):
+    def best_action(self, params: FrozenDict, state: jnp.ndarray):
         # computes the best action for a single state
         return jnp.argmax(
             (

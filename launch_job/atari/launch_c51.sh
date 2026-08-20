@@ -1,21 +1,21 @@
 SHARED_ARGS="--replay_buffer_capacity 1_000_000 --batch_size 32 --gamma 0.99 --horizon 27_000 \
-    --n_initial_samples 50_000 --epsilon_end 0.01 --epsilon_duration 1_000_000 --learning_rate 6.25e-5"
+    --n_initial_samples 20_000 --epsilon_end 0.01 --epsilon_duration 250_000 --learning_rate 6.25e-5"
 
 GAME="Alien"
-UPDATE_TO_DATA=0.03125  # 0.03125 0.25 4
-ARCHITECTURE_TYPE="impala"  # cnn impala
-GAP=1 # 0 1
-UPDATE_HORIZON=3  # 1 3
-PER=1  # 0 1
+UPDATE_TO_DATA=0.25  # 0.03125 0.25 4
+ARCHITECTURE_TYPE="cnn"  # cnn impala
+GAP=0 # 0 1
+UPDATE_HORIZON=1  # 1 3
+PER=0  # 0 1
 LAYER_NORM=0  # 0 1
-TARGET_UPDATE_PERIOD=10000
+TARGET_UPDATE_PERIOD=8000
 LINEAR_HEADS=1 # 0 1
 WEIGHT_DECAY=1
 N_BELLMAN_ITERATIONS=5
 FREEZE_FIRST_HEAD=1 # 0 1
 DISABLE_WANDB=0 # 0 1
-MIN_VALUE=-1
-MAX_VALUE=1
+MIN_VALUE=-10
+MAX_VALUE=10
 
 PLATFORM="cluster/cluster"  # cluster/cluster local/local pegasus/cluster
 
@@ -51,7 +51,7 @@ then
 fi
 
 SHARED_ARGS="$SHARED_ARGS --target_update_period $TARGET_UPDATE_PERIOD --architecture_type $ARCHITECTURE_TYPE \
-    --update_to_data $UPDATE_TO_DATA --update_horizon $UPDATE_HORIZON"
+    --update_to_data $UPDATE_TO_DATA --update_horizon $UPDATE_HORIZON --min_value $MIN_VALUE --max_value $MAX_VALUE"
 SHARED_NAME="LN${LAYER_NORM}_${ARCHITECTURE_TYPE}${ADDGAP}${ADDPER}_UTD${UPDATE_TO_DATA}_NSTEP${UPDATE_HORIZON}"
 
 # C51_ARGS="--experiment_name L2_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME}"

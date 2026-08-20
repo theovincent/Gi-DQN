@@ -181,7 +181,7 @@ class GiC51Shared:
         # computes the loss for a single sample
         q_logits, h_logits = self.online_networks.apply(params, sample.state)
         q_logits_a, h_logits_a = q_logits[:, sample.action], h_logits[:, sample.action]
-        q_value_probs, h_value_probs = jax.nn.softmax(q_logits_a, axis=-1), jax.nn.softmax(h_logits_a, axis=-1)
+        q_value_probs = jax.nn.softmax(q_logits_a, axis=-1)
         best_action = self.best_action(params, sample.next_state)
 
         first_target_next_q_probs = jax.nn.softmax(self.root_network.apply(root_params, sample.next_state), axis=-1)
@@ -189,16 +189,14 @@ class GiC51Shared:
         next_q_values = jnp.concatenate([first_target_next_q_probs[None, :], remaining_next_q_probs], axis=0)
         projected_targets = self.compute_target(next_q_values[:, best_action], sample)
 
-        baseline = jax.scipy.special.logsumexp(a=h_logits_a, b=jax.lax.stop_gradient(q_value_probs[1:]), axis=-1)[
-            :, None
-        ]
-        centered_h_logits = h_logits_a - baseline
-        target_loss = jnp.sum(jax.lax.stop_gradient(centered_h_logits) * projected_targets[1:], axis=-1)
+        target_loss = jnp.sum(jax.lax.stop_gradient(h_logits_a) * projected_targets[1:], axis=-1)
         target_loss = jnp.append(jnp.zeros(1), target_loss)
         ce_loss = optax.softmax_cross_entropy(q_logits_a, jax.lax.stop_gradient(projected_targets), axis=-1)
 
         kl = target_loss + ce_loss
-        h_loss = -jnp.sum(centered_h_logits * jax.lax.stop_gradient(projected_targets[1:]), axis=-1)
+        h_loss = -jnp.sum(
+            h_logits_a * jax.lax.stop_gradient(projected_targets[1:]), axis=-1
+        ) + jax.scipy.special.logsumexp(h_logits_a, axis=-1, b=jax.lax.stop_gradient(q_value_probs[1:]))
         h_loss = jnp.append(jnp.zeros(1), h_loss)
 
         return (
@@ -224,7 +222,7 @@ class GiC51Shared:
         return m
 
     @partial(jax.jit, static_argnames="self")
-    def best_action(self, params: FrozenDict, state: jnp.ndarray, key=None):
+    def best_action(self, params: FrozenDict, state: jnp.ndarray):
         # computes the best action for a single state
         return jnp.argmax(
             (jax.nn.softmax(self.online_networks.apply(params, state)[0], axis=-1) @ self.support).mean(axis=0)

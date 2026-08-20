@@ -119,7 +119,7 @@ class C51:
         return m
 
     @partial(jax.jit, static_argnames="self")
-    def best_action(self, params: FrozenDict, state: jnp.ndarray, key=None):
+    def best_action(self, params: FrozenDict, state: jnp.ndarray):
         # computes the best action for a single state
         return jnp.argmax(jax.nn.softmax(self.network.apply(params, state), axis=-1) @ self.support)
 
