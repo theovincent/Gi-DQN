@@ -2,6 +2,7 @@ from functools import partial
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 import optax
 from flax.core import FrozenDict
 
@@ -9,7 +10,7 @@ from slimdqn.algorithms.architectures.dqn import DQNNet
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer, ReplayElement
 
 
-class DQNRC:
+class C51RC:
     def __init__(
         self,
         key: jax.random.PRNGKey,
@@ -25,18 +26,24 @@ class DQNRC:
         update_to_data: int,
         target_update_period: int,
         weight_decay: float,
+        min_value: float,
+        max_value: float,
         adam_eps: float = 1e-8,
     ):
+        self.n_actions = n_actions  #
         key_params, key_h_params = jax.random.split(key)
 
-        self.network = DQNNet(features, architecture_type, layer_norm, gap, False, n_actions, n_heads=1, n_h_heads=0)
-
+        self.network = DQNNet(
+            features, architecture_type, layer_norm, gap, False, n_actions, n_heads=1, n_h_heads=0, n_bins=51
+        )
         # initialize online network
         self.params = self.network.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32))
         # initialize TD-error estimator networks
         self.h_params = self.network.init(key_h_params, jnp.zeros(observation_dim, dtype=jnp.float32))
 
+        # regularize the TD-error estimator network
         self.optimizer = optax.adam(learning_rate, eps=adam_eps)
+
         # regularize the TD-error estimator network
         self.h_optimizer = optax.adamw(learning_rate, eps=adam_eps, weight_decay=weight_decay)
 
@@ -47,11 +54,16 @@ class DQNRC:
         self.update_horizon = update_horizon
         self.update_to_data = update_to_data
         self.target_update_period = target_update_period
+        self.support = jnp.linspace(min_value, max_value, 51, dtype=jnp.float32)
+        self.bin_size = (max_value - min_value) / 50
+        self.max_value = max_value
+        self.min_value = min_value
+        self.clip_target = lambda target: jnp.clip(target, min_value, max_value)
         self.cumulative_q_loss = 0
         self.cumulative_h_loss = 0
-        self.cumulative_variance = 0
 
     def update_online_params(self, step: int, replay_buffer: ReplayBuffer):
+        # Update the network parameters every `update_to_data` steps
         for _ in range(int(max(self.update_to_data, 1))):
             # if update_to_data < 1, only perform one update if step = 0 [1 / self.update_to_data]
             if self.update_to_data < 1 and step % (1 / self.update_to_data) != 0:
@@ -65,7 +77,6 @@ class DQNRC:
                 self.h_optimizer_state,
                 per_sample_q_loss,
                 per_sample_h_loss,
-                variance,
             ) = self.learn_on_batch(
                 self.params,
                 self.h_params,
@@ -79,21 +90,19 @@ class DQNRC:
 
             self.cumulative_q_loss += per_sample_q_loss.mean()
             self.cumulative_h_loss += per_sample_h_loss.mean()
-            self.cumulative_variance += variance
 
     def update_target_params(self, step: int):
         # shift the network parameters every `target_update_period` steps. This starts the next Bellman iteration
         if step % self.target_update_period == 0:
+
             self.logs = {
                 "n_training_steps": step,
-                "loss": self.cumulative_q_loss / (self.target_update_period * self.update_to_data),
-                "variance": self.cumulative_variance / (self.target_update_period * self.update_to_data),
-                "h_loss": self.cumulative_h_loss / (self.target_update_period * self.update_to_data),
+                "loss": np.mean(self.cumulative_q_loss) / (self.target_update_period * self.update_to_data),
+                "h_loss": np.mean(self.cumulative_h_loss) / (self.target_update_period * self.update_to_data),
             }
 
             self.cumulative_q_loss = 0
             self.cumulative_h_loss = 0
-            self.cumulative_variance = 0
 
     @partial(jax.jit, static_argnames="self")
     def learn_on_batch(
@@ -105,7 +114,7 @@ class DQNRC:
         batch_samples,
         importance_weights,
     ):
-        (grad_loss, h_grad_loss), (per_sample_q_loss, per_sample_h_loss, variance) = jax.grad(
+        (grad_loss, h_grad_loss), (per_sample_q_loss, per_sample_h_loss) = jax.grad(
             self.loss_on_batch, has_aux=True, argnums=(0, 1)
         )(params, h_params, batch_samples, importance_weights)
 
@@ -115,43 +124,60 @@ class DQNRC:
         params = optax.apply_updates(params, updates)
         h_params = optax.apply_updates(h_params, h_updates)
 
-        return params, h_params, optimizer_state, h_optimizer_state, per_sample_q_loss, per_sample_h_loss, variance
+        return params, h_params, optimizer_state, h_optimizer_state, per_sample_q_loss, per_sample_h_loss
 
     def loss_on_batch(self, params: FrozenDict, h_params: FrozenDict, samples, importance_weights):
         # vmap to compute the loss for all samples
-        total_losses, q_losses, h_losses, variances = jax.vmap(self.loss, in_axes=(None, None, 0, 0))(
+        total_losses, q_losses, h_losses = jax.vmap(self.loss, in_axes=(None, None, 0, 0))(
             params, h_params, samples, importance_weights
         )
-        return total_losses.mean(), (q_losses, h_losses, variances.mean())
+        return total_losses.mean(), (
+            q_losses,
+            h_losses,
+        )
 
     def loss(self, params: FrozenDict, h_params: FrozenDict, sample: ReplayElement, importance_weight):
         # computes the loss for a single sample
-        q_value = self.network.apply(params, sample.state)[sample.action]
-        target = self.compute_target(params, sample)
-        td_error = target - q_value
+        q_logits_a = self.network.apply(params, sample.state)[sample.action]
+        h_logits_a = self.network.apply(h_params, sample.state)[sample.action]
+        q_value_probs = jax.nn.softmax(q_logits_a)
+        best_action = self.best_action(params, sample.next_state)
 
-        h_value = self.network.apply(h_params, sample.state)[sample.action]
-        h_loss = h_value * jax.lax.stop_gradient(h_value - td_error)
+        next_q_probs = jax.nn.softmax(self.network.apply(params, sample.next_state), axis=-1)[best_action]
+        projected_target = self.compute_target(next_q_probs, sample)
+        kl = jnp.sum(jax.lax.stop_gradient(h_logits_a) * projected_target) + optax.softmax_cross_entropy(
+            q_logits_a, jax.lax.stop_gradient(projected_target)
+        )
 
-        td_loss = target * jax.lax.stop_gradient(h_value) - q_value * jax.lax.stop_gradient(td_error)
+        h_loss = -jnp.sum(h_logits_a * jax.lax.stop_gradient(projected_target), axis=-1) + jax.scipy.special.logsumexp(
+            h_logits_a, axis=-1, b=jax.lax.stop_gradient(q_value_probs)
+        )
 
         return (
-            importance_weight * (td_loss + h_loss),
-            jnp.square(td_error),
-            jnp.square(h_value - td_error),
-            target**2 - target * q_value,
+            importance_weight * (kl + h_loss),
+            optax.softmax_cross_entropy(q_logits_a, projected_target),
+            optax.softmax_cross_entropy(jnp.log(q_value_probs) + h_logits_a, projected_target),
         )
 
-    def compute_target(self, params: FrozenDict, sample: ReplayElement):
+    def compute_target(self, next_q, sample: ReplayElement):
         # computes the target value for single sample
-        return sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * jnp.max(
-            self.network.apply(params, sample.next_state)
-        )
+        target_atoms = sample.reward + (1 - sample.is_terminal) * self.gamma * self.support
+        clipped_target_atoms = self.clip_target(target_atoms)
+        b = (clipped_target_atoms - self.min_value) / self.bin_size
+        l = jnp.clip(jnp.floor(b).astype(jnp.int32), 0, 50)
+        u = jnp.clip(jnp.ceil(b).astype(jnp.int32), 0, 50)
+
+        m = jnp.zeros(self.support.shape)
+        m = m.at[l].add(next_q * (u.astype(b.dtype) - b))
+        m = m.at[u].add(next_q * (b - l.astype(b.dtype)))
+        m = m.at[l].add(next_q * (l == u))
+
+        return m
 
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray):
         # computes the best action for a single state
-        return jnp.argmax(self.network.apply(params, state))
+        return jnp.argmax(jax.nn.softmax(self.network.apply(params, state), axis=-1) @ self.support)
 
     def get_model(self):
-        return {"params": self.params, "td_estimator_params": self.h_params}
+        return {"params": self.params}
