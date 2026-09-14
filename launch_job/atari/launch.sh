@@ -1,7 +1,7 @@
 SHARED_ARGS="--replay_buffer_capacity 1_000_000 --batch_size 32 --gamma 0.99 --horizon 27_000 \
     --n_initial_samples 20_000 --epsilon_end 0.01 --epsilon_duration 250_000 --learning_rate 6.25e-5"
 
-GAME="Gopher"
+GAME="Breakout"
 UPDATE_TO_DATA=0.25  # 0.03125 0.25 4
 ARCHITECTURE_TYPE="cnn"  # cnn impala
 GAP=0 # 0 1
@@ -54,7 +54,7 @@ SHARED_ARGS="$SHARED_ARGS --target_update_period $TARGET_UPDATE_PERIOD --archite
 SHARED_NAME="LN${LAYER_NORM}_${ARCHITECTURE_TYPE}${ADDGAP}${ADDPER}_UTD${UPDATE_TO_DATA}_NSTEP${UPDATE_HORIZON}"
 
 # C51_ARGS="--experiment_name KL_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME}"
-# launch_job/atari/${PLATFORM}_c51.sh --first_seed 1 --last_seed 2 --n_parallel_seeds 2 $SHARED_ARGS $C51_ARGS
+# launch_job/atari/${PLATFORM}_c51.sh --first_seed 1 --last_seed 3 --n_parallel_seeds 3 $SHARED_ARGS $C51_ARGS
 # launch_job/atari/${PLATFORM}_c51.sh --first_seed 4 --last_seed 5 --n_parallel_seeds 2 $SHARED_ARGS $C51_ARGS
 
 # C51RC_ARGS="--experiment_name KL_WD${WEIGHT_DECAY}_${SHARED_NAME}_${GAME} --weight_decay $WEIGHT_DECAY"
@@ -80,10 +80,10 @@ fi
 # launch_job/atari/${PLATFORM}_c51rcshared.sh --first_seed 1 --last_seed 3 --n_parallel_seeds 3 $SHARED_ARGS $C51RCSHARED_ARGS
 # launch_job/atari/${PLATFORM}_c51rcshared.sh --first_seed 4 --last_seed 5 --n_parallel_seeds 2 $SHARED_ARGS $C51RCSHARED_ARGS
 
-# IC51RCSHARED_ARGS="--experiment_name KL_K${N_BELLMAN_ITERATIONS}_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME} --n_bellman_iterations $N_BELLMAN_ITERATIONS"
-# launch_job/atari/${PLATFORM}_ic51rcshared.sh --first_seed 1 --last_seed 3 --n_parallel_seeds 3 $SHARED_ARGS $IC51RCSHARED_ARGS
-# launch_job/atari/${PLATFORM}_ic51rcshared.sh --first_seed 4 --last_seed 5 --n_parallel_seeds 2 $SHARED_ARGS $IC51RCSHARED_ARGS
+# IC51SHARED_ARGS="--experiment_name KL_K${N_BELLMAN_ITERATIONS}_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME} --n_bellman_iterations $N_BELLMAN_ITERATIONS"
+# launch_job/atari/${PLATFORM}_ic51shared.sh --first_seed 1 --last_seed 3 --n_parallel_seeds 3 $SHARED_ARGS $IC51SHARED_ARGS
+# launch_job/atari/${PLATFORM}_ic51shared.sh --first_seed 4 --last_seed 5 --n_parallel_seeds 2 $SHARED_ARGS $IC51SHARED_ARGS
 
 # GIC51SHARED_ARGS="--n_bellman_iterations $N_BELLMAN_ITERATIONS --weight_decay $WEIGHT_DECAY --experiment_name KL_K${N_BELLMAN_ITERATIONS}_WD${WEIGHT_DECAY}_${SHARED_NAME}_T${TARGET_UPDATE_PERIOD}_${GAME}"
-# launch_job/atari/${PLATFORM}_gic51shared.sh --first_seed 1 --last_seed 2 --n_parallel_seeds 2 $SHARED_ARGS $GIC51SHARED_ARGS
+# launch_job/atari/${PLATFORM}_gic51shared.sh --first_seed 1 --last_seed 3 --n_parallel_seeds 3 $SHARED_ARGS $GIC51SHARED_ARGS
 # launch_job/atari/${PLATFORM}_gic51shared.sh --first_seed 4 --last_seed 5 --n_parallel_seeds 2 $SHARED_ARGS $GIC51SHARED_ARGS
