@@ -1,8 +1,8 @@
 from functools import partial
+from pyexpat import features
 
 import jax
 import jax.numpy as jnp
-import numpy as np
 import optax
 from flax.core import FrozenDict
 
@@ -25,20 +25,19 @@ class C51RCShared:
         gamma: float,
         update_horizon: int,
         update_to_data: int,
-        target_update_period: int,
+        target_update_period: int,  # for logging only
         weight_decay: float,
-        min_value: float,
-        max_value: float,
         adam_eps: float = 1e-8,
+        n_bins: int = 51,
+        vmin: int = -10,
+        vmax: int = 10,
     ):
         self.n_actions = n_actions
-        self.network = DQNNet(
-            features, architecture_type, layer_norm, gap, linear_heads, n_actions, n_heads=1, n_h_heads=1, n_bins=51
-        )
-        # initialize online network
+        self.n_bins = n_bins
+        self.support = jnp.linspace(vmin, vmax, self.n_bins)
+        self.network = DQNNet(features, "cnn", layer_norm, gap, linear_heads, n_actions, n_heads=1, n_h_heads=1, n_bins=51)
         self.params = self.network.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
 
-        # regularize the TD-error estimator network
         self.optimizer = optax.adamw(
             learning_rate,
             eps=adam_eps,
@@ -51,104 +50,113 @@ class C51RCShared:
         self.update_horizon = update_horizon
         self.update_to_data = update_to_data
         self.target_update_period = target_update_period
-        self.support = jnp.linspace(min_value, max_value, 51, dtype=jnp.float32)
-        self.bin_size = (max_value - min_value) / 50
-        self.max_value = max_value
-        self.min_value = min_value
-        self.clip_target = lambda target: jnp.clip(target, min_value, max_value)
-        self.cumulative_q_losses = 0
-        self.cumulative_h_losses = 0
+        self.cumulative_q_loss = 0
+        self.cumulative_h_loss = 0
 
     def update_online_params(self, step: int, replay_buffer: ReplayBuffer):
-        # Update the network parameters every `update_to_data` steps
         for _ in range(int(max(self.update_to_data, 1))):
             # if update_to_data < 1, only perform one update if step = 0 [1 / self.update_to_data]
             if self.update_to_data < 1 and step % (1 / self.update_to_data) != 0:
                 return None
             batch_samples, (sample_keys, importance_weights) = replay_buffer.sample()
 
-            self.params, self.optimizer_state, per_sample_q_losses, per_sample_h_losses = self.learn_on_batch(
+            self.params, self.optimizer_state, per_sample_q_loss, per_sample_h_loss = self.learn_on_batch(
                 self.params, self.optimizer_state, batch_samples, importance_weights
             )
 
-            replay_buffer.update(sample_keys, per_sample_q_losses + per_sample_h_losses)
+            replay_buffer.update(sample_keys, per_sample_q_loss + per_sample_h_loss)
 
-            self.cumulative_q_losses += per_sample_q_losses.mean()
-            self.cumulative_h_losses += per_sample_h_losses.mean()
+            self.cumulative_q_loss += per_sample_q_loss.mean()
+            self.cumulative_h_loss += per_sample_h_loss.mean()
 
     def update_target_params(self, step: int):
-        # shift the network parameters every `target_update_period` steps. This starts the next Bellman iteration
         if step % self.target_update_period == 0:
-
             self.logs = {
                 "n_training_steps": step,
-                "loss": np.mean(self.cumulative_q_losses) / (self.target_update_period * self.update_to_data),
-                "h_loss": np.mean(self.cumulative_h_losses) / (self.target_update_period * self.update_to_data),
+                "loss": self.cumulative_q_loss / (self.target_update_period * self.update_to_data),
+                "h_loss": self.cumulative_h_loss / (self.target_update_period * self.update_to_data),
             }
-
-            self.cumulative_q_losses = 0
-            self.cumulative_h_losses = 0
+            self.cumulative_q_loss = 0
+            self.cumulative_h_loss = 0
 
     @partial(jax.jit, static_argnames="self")
     def learn_on_batch(self, params: FrozenDict, optimizer_state, batch_samples, importance_weights):
-        (grad_loss), (per_sample_q_losses, per_sample_h_losses) = jax.grad(self.loss_on_batch, has_aux=True)(
+        grad_loss, (per_sample_q_loss, per_sample_h_loss) = jax.grad(self.loss_on_batch, has_aux=True)(
             params, batch_samples, importance_weights
         )
-
         updates, optimizer_state = self.optimizer.update(grad_loss, optimizer_state, params)
-
         params = optax.apply_updates(params, updates)
 
-        return (params, optimizer_state, per_sample_q_losses, per_sample_h_losses)
+        return params, optimizer_state, per_sample_q_loss, per_sample_h_loss
 
     def loss_on_batch(self, params: FrozenDict, samples, importance_weights):
-        # vmap to compute the loss for all samples
-        total_losses, per_sample_q_losses, per_sample_h_losses = jax.vmap(self.loss, in_axes=(None, 0, 0))(
-            params, samples, importance_weights
-        )
-
-        return total_losses.mean(), (per_sample_q_losses, per_sample_h_losses)
+        total_loss, q_losses, h_losses = jax.vmap(self.loss, in_axes=(None, 0, 0))(params, samples, importance_weights)
+        return total_loss.mean(), (q_losses, h_losses)
 
     def loss(self, params: FrozenDict, sample: ReplayElement, importance_weight):
-        # computes the loss for a single sample
+        """Distributional TDRC with KL Divergence in Donsker-Varadhan Representation"""
         q_logits, h_logits = self.network.apply(params, sample.state)
-        q_logits_a, h_logits_a = q_logits[sample.action], h_logits[sample.action]
-        q_value_probs = jax.nn.softmax(q_logits_a)
-        best_action = self.best_action(params, sample.next_state)
+        q_logits, h_logits = (
+            q_logits.reshape(self.n_actions, self.n_bins)[sample.action, :],
+            h_logits.reshape(self.n_actions, self.n_bins)[sample.action, :],
+        )  # (n_actions, n_bins) -> (n_bins), (n_actions, n_bins) -> (n_bins)
+        q_log_distribution = jax.nn.log_softmax(q_logits, axis=-1)  # (n_bins,)
 
-        next_q_probs = jax.nn.softmax(self.network.apply(params, sample.next_state)[0], axis=-1)[best_action]
-        projected_target = self.compute_target(next_q_probs, sample)
-        kl = jnp.sum(jax.lax.stop_gradient(h_logits_a) * projected_target) + optax.softmax_cross_entropy(
-            q_logits_a, jax.lax.stop_gradient(projected_target)
+        target_distribution = self.compute_target(params, sample)  # (n_bins,)
+
+        cross_entropy = -jnp.sum(jax.lax.stop_gradient(target_distribution) * q_log_distribution)
+
+        # KL(Target_Distr. || Return_Distr.) needs to be minimized
+        td_loss = jnp.sum(target_distribution * jax.lax.stop_gradient(h_logits)) + cross_entropy
+
+        # Donsker-Varadhan needs to be maximized
+        h_loss = jnp.sum(jax.lax.stop_gradient(target_distribution) * h_logits) - jax.scipy.special.logsumexp(
+            h_logits + jax.lax.stop_gradient(q_log_distribution)
         )
-        h_loss = -jnp.sum(h_logits_a * jax.lax.stop_gradient(projected_target), axis=-1) + jax.scipy.special.logsumexp(
-            h_logits_a, axis=-1, b=jax.lax.stop_gradient(q_value_probs)
-        )
-        return (
-            importance_weight * (kl + h_loss),
-            optax.softmax_cross_entropy(q_logits_a, projected_target),
-            optax.softmax_cross_entropy(jnp.log(q_value_probs) + h_logits_a, projected_target),
-        )
 
-    def compute_target(self, next_q, sample: ReplayElement):
-        # computes the target value for single sample
-        target_atoms = sample.reward + (1 - sample.is_terminal) * self.gamma * self.support
-        clipped_target_atoms = self.clip_target(target_atoms)
-        b = (clipped_target_atoms - self.min_value) / self.bin_size
-        l = jnp.clip(jnp.floor(b).astype(jnp.int32), 0, 50)
-        u = jnp.clip(jnp.ceil(b).astype(jnp.int32), 0, 50)
+        return (importance_weight * (td_loss - h_loss), td_loss, -td_loss)
 
-        m = jnp.zeros(self.support.shape)
-        m = m.at[l].add(next_q * (u.astype(b.dtype) - b))
-        m = m.at[u].add(next_q * (b - l.astype(b.dtype)))
-        m = m.at[l].add(next_q * (l == u))
+    def compute_target(self, params: FrozenDict, sample: ReplayElement):
+        q_next_logits = self.network.apply(params, sample.next_state)[0].reshape(
+            self.n_actions, self.n_bins
+        )  # (n_actions, n_bins)
+        q_next_probabilities = jax.nn.softmax(q_next_logits, axis=-1)  # (n_actions, n_bins)
+        next_q_values = q_next_probabilities @ self.support  # (n_actions,)
+        best_action_index = jnp.argmax(next_q_values)  # (1,)
+        next_probabilities_target = q_next_probabilities[best_action_index, :]  # (n_bins,)
 
-        return m
+        non_aligned_target_atoms = (
+            sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * self.support
+        )  # (n_bins,)
+        clipped_non_aligned_target_atoms = jnp.clip(
+            non_aligned_target_atoms, self.support[0], self.support[-1]
+        )  # (n_bins,)
+
+        fractional_coordinates = (clipped_non_aligned_target_atoms - self.support[0]) / (
+            (self.support[-1] - self.support[0]) / (self.n_bins - 1)
+        )  # (n_bins,)
+        lower, upper = jnp.floor(fractional_coordinates).astype(jnp.int32), jnp.ceil(fractional_coordinates).astype(
+            jnp.int32
+        )  # (n_bins,), (n_bins,)
+
+        target_distribution = jnp.zeros(self.n_bins)  # (n_bins,)
+        target_distribution = target_distribution.at[lower].add(
+            next_probabilities_target * (upper - fractional_coordinates)
+        )  # (n_bins,)
+        target_distribution = target_distribution.at[upper].add(
+            next_probabilities_target * (fractional_coordinates - lower)
+        )  # (n_bins,)
+        target_distribution = target_distribution.at[lower].add(
+            jnp.where(lower == upper, next_probabilities_target, 0.0)
+        )  # (n_bins,)
+        return target_distribution  # (n_bins,)
 
     @partial(jax.jit, static_argnames="self")
     def best_action(self, params: FrozenDict, state: jnp.ndarray):
-        # computes the best action for a single state
-        return jnp.argmax(jax.nn.softmax(self.network.apply(params, state)[0], axis=-1) @ self.support)
+        logits = self.network.apply(params, state)[0].reshape(self.n_actions, self.n_bins)
+        probabilities = jax.nn.softmax(logits, axis=-1)
+        q_values = probabilities @ self.support
+        return jnp.argmax(q_values)
 
     def get_model(self):
         return {"params": self.params}
