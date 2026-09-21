@@ -43,8 +43,8 @@ def run(argvs=sys.argv[1:]):
         update_to_data=p["update_to_data"],
         target_update_period=p["target_update_period"],
         weight_decay=p["weight_decay"],
-        min_value=p["min_value"],
-        max_value=p["max_value"],
+        vmin=p["min_value"],
+        vmax=p["max_value"],
         adam_eps=1.5e-4,
     )
     train(train_key, p, agent, env, rb)

@@ -7,7 +7,7 @@ import numpy as np
 from experiments.base.dqn import train
 from experiments.base.utils import prepare_logs
 from slimdqn.environments.atari import AtariEnv
-from slimdqn.algorithms.ic51shared import iC51Shared
+from slimdqn.algorithms.ic51shared import IC51Shared
 from slimdqn.sample_collection.replay_buffer import ReplayBuffer
 from slimdqn.sample_collection.samplers import Uniform, Prioritized
 
@@ -28,7 +28,7 @@ def run(argvs=sys.argv[1:]):
         clipping=lambda x: np.clip(x, -1, 1),
         stack_size=4,
     )
-    agent = iC51Shared(
+    agent = IC51Shared(
         q_key,
         (env.state_height, env.state_width, env.n_stacked_frames),
         env.n_actions,
@@ -43,8 +43,8 @@ def run(argvs=sys.argv[1:]):
         update_horizon=p["update_horizon"],
         update_to_data=p["update_to_data"],
         target_update_period=p["target_update_period"],
-        min_value=p["min_value"],
-        max_value=p["max_value"],
+        vmin=p["min_value"],
+        vmax=p["max_value"],
         adam_eps=1.5e-4,
     )
     train(train_key, p, agent, env, rb)
