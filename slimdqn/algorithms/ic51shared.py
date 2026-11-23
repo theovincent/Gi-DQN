@@ -106,7 +106,7 @@ class iC51Shared:
 
             replay_buffer.update(sample_keys, per_sample_q_losses.mean(axis=1))
 
-            self.cumulative_losses += per_sample_q_losses.mean()
+            self.cumulative_losses += per_sample_q_losses.mean(axis=0)
 
     def update_target_params(self, step: int):
         # update target network parameters every target_update_period steps. This starts the next Bellman iteration
