@@ -122,13 +122,15 @@ class iC51:
         q_logits = jax.vmap(self.network.apply, in_axes=(0, None))(jax.tree.map(lambda x: x[1:], params), sample.state)[
             :, sample.action
         ]
-        best_action = self.best_action(params, sample.next_state)
 
         target_next_q_probs = jax.nn.softmax(
             jax.vmap(self.network.apply, in_axes=(0, None))(jax.tree.map(lambda x: x[:-1], params), sample.next_state),
             axis=-1,
         )
-        projected_target = self.compute_target(target_next_q_probs[:, best_action], sample)
+        best_action = jnp.argmax(target_next_q_probs @ self.support, axis=-1)
+        projected_target = self.compute_target(
+            target_next_q_probs[jnp.arange(self.n_bellman_iterations), best_action], sample
+        )
         ce = optax.softmax_cross_entropy(q_logits, jax.lax.stop_gradient(projected_target), axis=-1)
 
         return importance_weight * ce, ce

@@ -57,7 +57,6 @@ class GiC51Shared:
         max_value: float,
         adam_eps: float = 1e-8,
     ):
-        key_params, key_root_params = jax.random.split(key, 2)
 
         self.n_bellman_iterations = n_bellman_iterations
         self.n_actions = n_actions
@@ -86,7 +85,7 @@ class GiC51Shared:
             n_bins=self.n_bins,
         )
 
-        self.params = self.online_networks.init(key_params, jnp.zeros(observation_dim, dtype=jnp.float32))
+        self.params = self.online_networks.init(key, jnp.zeros(observation_dim, dtype=jnp.float32))
         self.root_params = set_target_params(self.params, linear_heads, self.n_actions, self.n_bins)
         self.optimizer = optax.adamw(
             learning_rate,
@@ -181,13 +180,15 @@ class GiC51Shared:
         # computes the loss for a single sample
         q_logits, h_logits = self.online_networks.apply(params, sample.state)
         q_logits_a, h_logits_a = q_logits[:, sample.action], h_logits[:, sample.action]
-        q_value_probs = jax.nn.softmax(q_logits_a, axis=-1)
-        best_action = self.best_action(params, sample.next_state)
+        q_log_probs = jax.nn.log_softmax(q_logits_a, axis=-1)
 
         first_target_next_q_probs = jax.nn.softmax(self.root_network.apply(root_params, sample.next_state), axis=-1)
         remaining_next_q_probs = jax.nn.softmax(self.online_networks.apply(params, sample.next_state)[0][:-1], axis=-1)
         next_q_values = jnp.concatenate([first_target_next_q_probs[None, :], remaining_next_q_probs], axis=0)
-        projected_targets = self.compute_target(next_q_values[:, best_action], sample)
+        best_action = jnp.argmax(next_q_values @ self.support, axis=-1)
+        projected_targets = self.compute_target(
+            next_q_values[jnp.arange(self.n_bellman_iterations), best_action], sample
+        )
 
         target_loss = jnp.sum(jax.lax.stop_gradient(h_logits_a) * projected_targets[1:], axis=-1)
         target_loss = jnp.append(jnp.zeros(1), target_loss)
@@ -196,13 +197,15 @@ class GiC51Shared:
         kl = target_loss + ce_loss
         h_loss = -jnp.sum(
             h_logits_a * jax.lax.stop_gradient(projected_targets[1:]), axis=-1
-        ) + jax.scipy.special.logsumexp(h_logits_a, axis=-1, b=jax.lax.stop_gradient(q_value_probs[1:]))
+        ) + jax.scipy.special.logsumexp(h_logits_a + jax.lax.stop_gradient(q_log_probs[1:]), axis=-1)
         h_loss = jnp.append(jnp.zeros(1), h_loss)
 
         return (
             importance_weight * (kl + h_loss),
             optax.softmax_cross_entropy(q_logits_a, projected_targets),
-            optax.softmax_cross_entropy(jnp.log(q_value_probs[1:]) + h_logits_a, projected_targets[1:]),
+            optax.softmax_cross_entropy(
+                jax.nn.log_softmax(q_logits_a[1:], axis=-1) + h_logits_a, projected_targets[1:]
+            ),
         )
 
     def compute_target(self, next_q, sample: ReplayElement):

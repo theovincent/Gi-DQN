@@ -95,9 +95,9 @@ class C51:
     def loss(self, params: FrozenDict, params_target: FrozenDict, sample: ReplayElement, importance_weight):
         # computes the loss for a single sample
         q_logits = self.network.apply(params, sample.state)
-        best_action = self.best_action(params, sample.next_state)
 
         next_q_probs = jax.nn.softmax(self.network.apply(params_target, sample.next_state), axis=-1)
+        best_action = jnp.argmax(next_q_probs @ self.support)
         projected_target = self.compute_target(next_q_probs[best_action], sample)
 
         ce = optax.softmax_cross_entropy(q_logits[sample.action], projected_target)
@@ -105,7 +105,7 @@ class C51:
 
     def compute_target(self, next_q, sample: ReplayElement):
         # computes the target value for single sample
-        target_atoms = sample.reward + (1 - sample.is_terminal) * self.gamma * self.support
+        target_atoms = sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * self.support
         clipped_target_atoms = self.clip_target(target_atoms)
         b = (clipped_target_atoms - self.min_value) / self.bin_size
         l = jnp.clip(jnp.floor(b).astype(jnp.int32), 0, 50)

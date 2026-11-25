@@ -173,14 +173,16 @@ class GiC51:
         )[:, sample.action]
         h_logits_a = jax.vmap(self.network.apply, in_axes=(0, None))(h_params, sample.state)[:, sample.action]
 
-        q_value_probs = jax.nn.softmax(q_logits_a, axis=-1)
-        best_action = self.best_action(params, sample.next_state)
+        q_log_probs = jax.nn.log_softmax(q_logits_a, axis=-1)
 
         target_next_q_probs = jax.nn.softmax(
             jax.vmap(self.network.apply, in_axes=(0, None))(jax.tree.map(lambda x: x[:-1], params), sample.next_state),
             axis=-1,
         )
-        projected_targets = self.compute_target(target_next_q_probs[:, best_action], sample)
+        best_action = jnp.argmax(target_next_q_probs @ self.support, axis=-1)
+        projected_targets = self.compute_target(
+            target_next_q_probs[jnp.arange(self.n_bellman_iterations), best_action], sample
+        )
 
         target_loss = jnp.sum(jax.lax.stop_gradient(h_logits_a) * projected_targets[1:], axis=-1)
         target_loss = jnp.append(jnp.zeros(1), target_loss)
@@ -189,14 +191,16 @@ class GiC51:
         kl = target_loss + ce_loss
         h_loss = -jnp.sum(
             h_logits_a * jax.lax.stop_gradient(projected_targets[1:]), axis=-1
-        ) + jax.scipy.special.logsumexp(h_logits_a, axis=-1, b=jax.lax.stop_gradient(q_value_probs[1:]))
+        ) + jax.scipy.special.logsumexp(h_logits_a + jax.lax.stop_gradient(q_log_probs[1:]), axis=-1)
 
         h_loss = jnp.append(jnp.zeros(1), h_loss)
 
         return (
             importance_weight * (kl + h_loss),
             optax.softmax_cross_entropy(q_logits_a, projected_targets),
-            optax.softmax_cross_entropy(jnp.log(q_value_probs[1:]) + h_logits_a, projected_targets[1:]),
+            optax.softmax_cross_entropy(
+                jax.nn.log_softmax(q_logits_a[1:], axis=-1) + h_logits_a, projected_targets[1:]
+            ),
         )
 
     def compute_target(self, next_q, sample: ReplayElement):

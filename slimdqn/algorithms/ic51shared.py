@@ -128,7 +128,6 @@ class iC51Shared:
                 )
 
             self.cumulative_losses = np.zeros(self.n_bellman_iterations)
-            self.cumulative_variance = 0
 
     @partial(jax.jit, static_argnames="self")
     def learn_on_batch(
@@ -152,12 +151,14 @@ class iC51Shared:
     def loss(self, params: FrozenDict, target_params: FrozenDict, sample: ReplayElement, importance_weight):
         # computes the loss for a single sample
         q_logits = self.online_networks.apply(params, sample.state)[:, sample.action]
-        best_action = self.best_action(params, sample.next_state)
 
         first_target_next_q_probs = jax.nn.softmax(self.root_network.apply(target_params, sample.next_state), axis=-1)
         remaining_next_q_probs = jax.nn.softmax(self.online_networks.apply(params, sample.next_state), axis=-1)[:-1]
         next_q_values = jnp.concatenate([first_target_next_q_probs[None, :], remaining_next_q_probs], axis=0)
-        projected_target = self.compute_target(next_q_values[:, best_action], sample)
+        best_action = jnp.argmax(next_q_values @ self.support, axis=-1)
+        projected_target = self.compute_target(
+            next_q_values[jnp.arange(self.n_bellman_iterations), best_action], sample
+        )
         ce = optax.softmax_cross_entropy(q_logits, jax.lax.stop_gradient(projected_target), axis=-1)
 
         return importance_weight * ce, ce

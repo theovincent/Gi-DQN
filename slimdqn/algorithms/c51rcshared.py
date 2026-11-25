@@ -113,26 +113,26 @@ class C51RCShared:
         # computes the loss for a single sample
         q_logits, h_logits = self.network.apply(params, sample.state)
         q_logits_a, h_logits_a = q_logits[sample.action], h_logits[sample.action]
-        q_value_probs = jax.nn.softmax(q_logits_a)
-        best_action = self.best_action(params, sample.next_state)
+        q_log_probs = jax.nn.log_softmax(q_logits_a)
 
-        next_q_probs = jax.nn.softmax(self.network.apply(params, sample.next_state)[0], axis=-1)[best_action]
-        projected_target = self.compute_target(next_q_probs, sample)
+        next_q_probs = jax.nn.softmax(self.network.apply(params, sample.next_state)[0], axis=-1)
+        best_action = jnp.argmax(next_q_probs @ self.support)
+        projected_target = self.compute_target(next_q_probs[best_action], sample)
         kl = jnp.sum(jax.lax.stop_gradient(h_logits_a) * projected_target) + optax.softmax_cross_entropy(
             q_logits_a, jax.lax.stop_gradient(projected_target)
         )
         h_loss = -jnp.sum(h_logits_a * jax.lax.stop_gradient(projected_target), axis=-1) + jax.scipy.special.logsumexp(
-            h_logits_a, axis=-1, b=jax.lax.stop_gradient(q_value_probs)
+            h_logits_a + jax.lax.stop_gradient(q_log_probs), axis=-1
         )
         return (
             importance_weight * (kl + h_loss),
             optax.softmax_cross_entropy(q_logits_a, projected_target),
-            optax.softmax_cross_entropy(jnp.log(q_value_probs) + h_logits_a, projected_target),
+            optax.softmax_cross_entropy(jax.nn.log_softmax(q_logits_a, axis=-1) + h_logits_a, projected_target),
         )
 
     def compute_target(self, next_q, sample: ReplayElement):
         # computes the target value for single sample
-        target_atoms = sample.reward + (1 - sample.is_terminal) * self.gamma * self.support
+        target_atoms = sample.reward + (1 - sample.is_terminal) * (self.gamma**self.update_horizon) * self.support
         clipped_target_atoms = self.clip_target(target_atoms)
         b = (clipped_target_atoms - self.min_value) / self.bin_size
         l = jnp.clip(jnp.floor(b).astype(jnp.int32), 0, 50)
